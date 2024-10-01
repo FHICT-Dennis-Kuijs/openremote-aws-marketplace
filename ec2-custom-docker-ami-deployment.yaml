@@ -1,0 +1,138 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: AWS CloudFormation Template to deploy an EC2 instance using a custom Docker-ready AMI
+
+Parameters:
+  CustomAmiId:
+    Type: AWS::EC2::Image::Id
+    Description: ID of the custom AMI with Docker pre-installed
+
+Resources:
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/16
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: MyVPC
+
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: MyInternetGateway
+
+  AttachGateway:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref VPC
+      InternetGatewayId: !Ref InternetGateway
+
+  PublicSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.1.0/24
+      MapPublicIpOnLaunch: true
+      AvailabilityZone: us-east-1a
+      Tags:
+        - Key: Name
+          Value: MyPublicSubnet
+
+  RouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: MyRouteTable
+
+  Route:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref RouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+  SubnetRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet
+      RouteTableId: !Ref RouteTable
+
+  SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow SSH, HTTP, HTTPS, MQTT, SNMP, and Ping
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: '22'
+          ToPort: '22'
+          CidrIp: 0.0.0.0/0
+          Description: SSH
+        - IpProtocol: tcp
+          FromPort: '80'
+          ToPort: '80'
+          CidrIp: 0.0.0.0/0
+          Description: HTTP
+        - IpProtocol: tcp
+          FromPort: '443'
+          ToPort: '443'
+          CidrIp: 0.0.0.0/0
+          Description: HTTPS
+        - IpProtocol: tcp
+          FromPort: '80'
+          ToPort: '80'
+          CidrIpv6: ::/0
+          Description: HTTP
+        - IpProtocol: tcp
+          FromPort: '443'
+          ToPort: '443'
+          CidrIpv6: ::/0
+          Description: HTTPS
+        - IpProtocol: tcp
+          FromPort: '8883'
+          ToPort: '8883'
+          CidrIp: 0.0.0.0/0
+          Description: MQTT
+        - IpProtocol: tcp
+          FromPort: '8883'
+          ToPort: '8883'
+          CidrIpv6: ::/0
+          Description: MQTT
+        - IpProtocol: udp
+          FromPort: '161'
+          ToPort: '162'
+          CidrIp: 0.0.0.0/0
+          Description: SNMP
+        - IpProtocol: udp
+          FromPort: '161'
+          ToPort: '162'
+          CidrIpv6: ::/0
+          Description: SNMP
+        - IpProtocol: icmp
+          FromPort: '8'
+          ToPort: '-1'
+          CidrIp: 0.0.0.0/0
+          Description: Ping
+        - IpProtocol: icmpv6
+          FromPort: '-1'
+          ToPort: '-1'
+          CidrIpv6: ::/0
+          Description: Ping
+
+  EC2Instance:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: t4g.medium
+      ImageId: !Ref CustomAmiId
+      SubnetId: !Ref PublicSubnet
+      SecurityGroupIds:
+        - !Ref SecurityGroup
+      KeyName: OpenRemote
+      Tags:
+        - Key: Name
+          Value: MyEC2Instance
