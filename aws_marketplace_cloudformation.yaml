@@ -1,0 +1,175 @@
+Metadata:
+  AWS::CloudFormation::Interface: 
+    ParameterGroups:
+      -
+        Label:
+          default: Instance Configuration
+        Parameters:
+          - Instance
+          - VPC
+          - Subnet
+          - Keypair
+          - Storage
+          - StaticIP
+      - 
+        Label:
+          default: Hostname Configuration
+        Parameters:
+          - Hostname
+          - Subdomain
+          - Hostedzone
+      - Label:
+          default: OpenRemote Configuration
+        Parameters:
+          - SMTPHost
+          - SMTPUser
+          - SMTPPassword
+          - SMTPFrom
+          - AdminPassword
+
+Conditions:
+  CreateElasticIP:
+    !Equals [!Ref StaticIP, "true"]
+
+Parameters:
+    Instance:
+      Description: Choose your desired instance type
+      Type: String
+      Default: t4g.medium
+      AllowedValues:
+        - t4g.micro
+        - t4g.small
+        - t4g.medium
+        - t4g.large
+        - t4g.xlarge
+        - m6g.large
+        - m6g.xlarge
+    VPC:
+      Description: Choose your desired VPC
+      Type: AWS::EC2::VPC::Id
+    Subnet:
+      Description: Choose your desired Subnet
+      Type: AWS::EC2::Subnet::Id
+    Keypair:
+      Description: Choose your keypair (For SSH Access)
+      Type: AWS::EC2::KeyPair::KeyName
+    Storage:
+      Description: Choose your desired amount of block storage (GB's)
+      Type: Number
+      Default: 8
+      MinValue: 8
+    StaticIP:
+      Description: Choose if you want to assign a static IP to your instance (Elastic IP)
+      Type: String
+      AllowedValues:
+       - true
+       - false
+      Default: false
+    Hostname:
+      Description: FQDN (Fully Qualified Domain Name) you want to use for this OpenRemote instance
+      Type: String
+    Subdomain:
+      Description: Choose your desired subdomain (leave blank if not nessecay)
+      Type: String
+    Hostedzone:
+      Description: Choose your hosted zone for the FQDN (leave blank to create a new one)
+      Type: AWS::Route53::HostedZone::Id
+    SMTPHost:
+      Description: Fill in your SMTP Hostname
+      Type: String
+    SMTPUser:
+      Description: Fill in your SMTP Username
+      Type: String
+    SMTPPassword:
+      Description: Fill in your SMTP Password
+      Type: String
+      NoEcho: true
+    SMTPFrom:
+      Description: Fill in your From E-mail address
+      Type: String
+    AdminPassword:
+      Description: Fill in your new OpenRemote Password
+      Type: String
+      NoEcho: true
+    
+Resources: 
+  OpenRemote:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: ami-00e73ddc3a6fc7dfe
+      InstanceType: !Ref Instance
+      KeyName: !Ref Keypair
+      SubnetId: !Ref Subnet
+      SecurityGroupIds:
+      -  !Ref SecurityGroup
+      Tags:
+        - Key: Name
+          Value: OpenRemote
+      BlockDeviceMappings:
+       - DeviceName: /dev/xvda
+         Ebs:
+          VolumeSize: !Ref Storage
+          VolumeType: gp3
+          DeleteOnTermination: true
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          sudo yum install htop -y
+          sudo yum install -y docker
+          sudo service docker start
+          sudo curl -L https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m) -o /usr/local/bin/docker-compose
+          sudo chmod +x /usr/local/bin/docker-compose
+          sudo mkdir openremote
+          cd openremote
+          sudo wget https://raw.githubusercontent.com/openremote/openremote/master/docker-compose.yml
+          OR_HOSTNAME="${Hostname}" OR_ADMIN_PASSWORD="${AdminPassword}" docker-compose -p openremote up -d
+  
+  SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: OpenRemote Port Mappings
+      GroupName: OpenRemote
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - CidrIp: 0.0.0.0/0
+          FromPort: 22
+          IpProtocol: tcp
+          ToPort: 22
+          Description: Enable SSH Access
+        - CidrIp: 0.0.0.0/0
+          FromPort: 80
+          IpProtocol: tcp
+          ToPort: 80
+          Description: Enable HTTP Access
+        - CidrIp: 0.0.0.0/0
+          FromPort: 443
+          IpProtocol: tcp
+          ToPort: 443
+          Description: Enable HTTPS Access
+        - CidrIp: 0.0.0.0/0
+          FromPort: 8883
+          IpProtocol: tcp
+          ToPort: 8883
+          Description: MQTT Access
+        - CidrIp: 0.0.0.0/0
+          FromPort: 162
+          IpProtocol: udp
+          ToPort: 162
+          Description: SNMP Access
+  
+  DNSRecords:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId: !Ref Hostedzone
+      Name: !Ref Hostname
+      Type: A
+      TTL: 900
+      ResourceRecords:
+        - !GetAtt ElasticIP.PublicIp
+  
+  ElasticIP:
+    Type: AWS::EC2::EIP
+    Condition: CreateElasticIP
+    Properties:
+      InstanceId: !Ref OpenRemote
+
