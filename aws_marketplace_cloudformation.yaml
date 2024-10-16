@@ -5,110 +5,166 @@ Metadata:
         Label:
           default: Instance Configuration
         Parameters:
+          - Name
           - Instance
-          - VPC
-          - Subnet
-          - Keypair
-          - Storage
-          - StaticIP
-      - 
-        Label:
-          default: Hostname Configuration
-        Parameters:
           - Hostname
-          - Subdomain
-          - Hostedzone
       - Label:
           default: OpenRemote Configuration
         Parameters:
-          - SMTPHost
-          - SMTPUser
-          - SMTPPassword
-          - SMTPFrom
-          - AdminPassword
-
-Conditions:
-  CreateElasticIP:
-    !Equals [!Ref StaticIP, "true"]
+          - Password
+          - Mapdata
+          - Mapsettings
 
 Parameters:
+    Name:
+      Description: Choose a name for your OpenRemote Instance.
+      Type: String
+      Default: OpenRemote
     Instance:
-      Description: Choose your desired instance type
+      Description: Choose a instance based on your monthly budget
       Type: String
-      Default: t4g.medium
+      Default: Medium
       AllowedValues:
-        - t4g.micro
-        - t4g.small
-        - t4g.medium
-        - t4g.large
-        - t4g.xlarge
-        - m6g.large
-        - m6g.xlarge
-    VPC:
-      Description: Choose your desired VPC
-      Type: AWS::EC2::VPC::Id
-    Subnet:
-      Description: Choose your desired Subnet
-      Type: AWS::EC2::Subnet::Id
-    Keypair:
-      Description: Choose your keypair (For SSH Access)
-      Type: AWS::EC2::KeyPair::KeyName
-    Storage:
-      Description: Choose your desired amount of block storage (GB's)
-      Type: Number
-      Default: 8
-      MinValue: 8
-    StaticIP:
-      Description: Choose if you want to assign a static IP to your instance (Elastic IP)
-      Type: String
-      AllowedValues:
-       - true
-       - false
-      Default: false
+        - Small
+        - Medium
+        - Large
     Hostname:
-      Description: FQDN (Fully Qualified Domain Name) you want to use for this OpenRemote instance
+      Description: Fill in the FQDN (Fully Qualified Domain Name) that you want to use for this OpenRemote instance
       Type: String
-    Subdomain:
-      Description: Choose your desired subdomain (leave blank if not nessecay)
-      Type: String
-    Hostedzone:
-      Description: Choose your hosted zone for the FQDN (leave blank to create a new one)
-      Type: AWS::Route53::HostedZone::Id
-    SMTPHost:
-      Description: Fill in your SMTP Hostname
-      Type: String
-    SMTPUser:
-      Description: Fill in your SMTP Username
-      Type: String
-    SMTPPassword:
-      Description: Fill in your SMTP Password
+    Password:
+      Description: Create an (admin) password for your OpenRemote instance
       Type: String
       NoEcho: true
-    SMTPFrom:
-      Description: Fill in your From E-mail address
+    Mapdata:
+      Description: Put a link where the system can download your (custom) maptiles (mbtiles)
       Type: String
-    AdminPassword:
-      Description: Fill in your new OpenRemote Password
+    Mapsettings:
+      Description: Put a link where the system can download your mapsettings.json file
       Type: String
-      NoEcho: true
-    
-Resources: 
-  OpenRemote:
+
+Mappings:
+  InstanceType:
+    default:
+      Small: t4g.small
+      Medium: t4g.medium
+      Large: t4g.large
+
+Resources:   
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 172.20.0.0/16
+      EnableDnsHostnames: true
+      EnableDnsSupport: true
+      InstanceTenancy: default
+      Tags:
+        - Key: Name
+          Value: !Ref Name
+
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags: 
+        - Key: Name
+          Value: !Ref Name
+  
+  InternetGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      InternetGatewayId: !Ref InternetGateway
+      VpcId: !Ref VPC
+
+  Subnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      CidrBlock: 172.20.0.0/24
+      VpcId: !Ref VPC
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Ref Name
+  
+  RouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      Tags: 
+        - Key: Name
+          Value: !Ref Name
+      VpcId: !Ref VPC
+  
+  Route:
+    Type: AWS::EC2::Route
+    Properties:
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+      RouteTableId: !Ref RouteTable
+  
+  RouteTableAssociate:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref RouteTable
+      SubnetId: !Ref Subnet
+
+  
+  SSHKeyPair:
+    Type: AWS::EC2::KeyPair
+    Properties:
+      KeyFormat: pem
+      KeyName: OpenRemote
+      KeyType: rsa
+      Tags: 
+        - Key: Name
+          Value: !Ref Name
+  
+  SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: OpenRemote Security Group
+      GroupName: !Ref Name
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - CidrIp: 0.0.0.0/0
+          FromPort: 22
+          IpProtocol: tcp
+          ToPort: 22
+          Description: SSH Access
+        - CidrIp: 0.0.0.0/0
+          FromPort: 80
+          IpProtocol: tcp
+          ToPort: 80
+          Description: HTTP Access
+        - CidrIp: 0.0.0.0/0
+          FromPort: 443
+          IpProtocol: tcp
+          ToPort: 443
+          Description: HTTPS Access
+        - CidrIp: 0.0.0.0/0
+          FromPort: 8883
+          IpProtocol: tcp
+          ToPort: 8883
+          Description: MQTT Access
+        - CidrIp: 0.0.0.0/0
+          FromPort: 162
+          IpProtocol: udp
+          ToPort: 162
+          Description: SNMP Access
+  
+  InstanceOR:
     Type: AWS::EC2::Instance
     Properties:
       ImageId: ami-00e73ddc3a6fc7dfe
-      InstanceType: !Ref Instance
-      KeyName: !Ref Keypair
+      InstanceType: !FindInMap [InstanceType, default, !Ref Instance]
+      KeyName: !Ref SSHKeyPair
       SubnetId: !Ref Subnet
       SecurityGroupIds:
       -  !Ref SecurityGroup
       Tags:
         - Key: Name
-          Value: OpenRemote
+          Value: !Ref Name
       BlockDeviceMappings:
        - DeviceName: /dev/xvda
          Ebs:
-          VolumeSize: !Ref Storage
+          VolumeSize: 30
           VolumeType: gp3
           DeleteOnTermination: true
       UserData:
@@ -122,40 +178,19 @@ Resources:
           sudo mkdir openremote
           cd openremote
           sudo wget https://raw.githubusercontent.com/openremote/openremote/master/docker-compose.yml
-          OR_HOSTNAME="${Hostname}" OR_ADMIN_PASSWORD="${AdminPassword}" docker-compose -p openremote up -d
+          OR_HOSTNAME="${Hostname}" OR_ADMIN_PASSWORD="${Password}" docker-compose -p openremote up -d
+          mkdir map
+          cd map
+          sudo wget -O mapdata.mbtiles "${Mapdata}"
+          sudo wget -O mapsettings.json "${Mapsettings}"
+          sudo docker cp mapdata.mbtiles openremote-manager-1:/opt/map/mapdata.mbtiles
+          sudo docker cp mapsettings.json openremote-manager-1:/opt/map/mapsettings.json
+          sudo docker restart $(docker ps -q)
   
-  SecurityGroup:
-    Type: AWS::EC2::SecurityGroup
+  Hostedzone:
+    Type: AWS::Route53::HostedZone
     Properties:
-      GroupDescription: OpenRemote Port Mappings
-      GroupName: OpenRemote
-      VpcId: !Ref VPC
-      SecurityGroupIngress:
-        - CidrIp: 0.0.0.0/0
-          FromPort: 22
-          IpProtocol: tcp
-          ToPort: 22
-          Description: Enable SSH Access
-        - CidrIp: 0.0.0.0/0
-          FromPort: 80
-          IpProtocol: tcp
-          ToPort: 80
-          Description: Enable HTTP Access
-        - CidrIp: 0.0.0.0/0
-          FromPort: 443
-          IpProtocol: tcp
-          ToPort: 443
-          Description: Enable HTTPS Access
-        - CidrIp: 0.0.0.0/0
-          FromPort: 8883
-          IpProtocol: tcp
-          ToPort: 8883
-          Description: MQTT Access
-        - CidrIp: 0.0.0.0/0
-          FromPort: 162
-          IpProtocol: udp
-          ToPort: 162
-          Description: SNMP Access
+      Name: !Ref Hostname
   
   DNSRecords:
     Type: AWS::Route53::RecordSet
@@ -165,11 +200,7 @@ Resources:
       Type: A
       TTL: 900
       ResourceRecords:
-        - !GetAtt ElasticIP.PublicIp
-  
-  ElasticIP:
-    Type: AWS::EC2::EIP
-    Condition: CreateElasticIP
-    Properties:
-      InstanceId: !Ref OpenRemote
+        - !GetAtt InstanceOR.PublicIp
+
+
 
