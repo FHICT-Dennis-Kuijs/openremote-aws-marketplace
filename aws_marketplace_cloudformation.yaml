@@ -12,8 +12,15 @@ Metadata:
           default: OpenRemote Configuration
         Parameters:
           - Password
-          - Mapdata
+          - Maptiles
           - Mapsettings
+      - Label:
+          default: E-mail Configuration
+        Parameters:
+          - SMTPHost
+          - SMTPEmail
+          - SMTPPassword
+
 
 Parameters:
     Name:
@@ -35,12 +42,22 @@ Parameters:
       Description: Create an (admin) password for your OpenRemote instance
       Type: String
       NoEcho: true
-    Mapdata:
-      Description: Put a link where the system can download your (custom) maptiles (mbtiles)
+    Maptiles:
+      Description: Put a link where the system can download your (custom) maptiles
       Type: String
     Mapsettings:
       Description: Put a link where the system can download your mapsettings.json file
       Type: String
+    SMTPHost:
+      Description: Fill in the SMTP Hostname you want to use for sending e-mails
+      Type: String
+    SMTPEmail:
+      Description: Fill in the (From) E-mail address you want to use for sending e-mails
+      Type: String
+    SMTPPassword:
+      Description: Fill in the SMTP password attached to your e-mail address you want to use for sending e-mails
+      Type: String
+      NoEcho: true
 
 Mappings:
   InstanceType:
@@ -178,19 +195,28 @@ Resources:
           sudo mkdir openremote
           cd openremote
           sudo wget https://raw.githubusercontent.com/openremote/openremote/master/docker-compose.yml
-          OR_HOSTNAME="${Hostname}" OR_ADMIN_PASSWORD="${Password}" docker-compose -p openremote up -d
+          PUBLIC_IPV4=$(curl v4.ident.me 2>/dev/null)
+          OR_HOSTNAME=$PUBLIC_IPV4 OR_SSL_PORT=443 OR_ADDITIONAL_HOSTNAMES="${Hostname}" OR_ADMIN_PASSWORD="${Password}" OR_EMAIL_HOST="${SMTPHost}" OR_EMAIL_USER="${SMTPEmail}" OR_EMAIL_PASSWORD="${SMTPPassword}" OR_EMAIL_FROM="${SMTPEmail}" docker-compose -p openremote up -d --no-start
           mkdir map
           cd map
-          sudo wget -O mapdata.mbtiles "${Mapdata}"
+          sudo wget -O mapdata.mbtiles "${Maptiles}"
           sudo wget -O mapsettings.json "${Mapsettings}"
           sudo docker cp mapdata.mbtiles openremote-manager-1:/opt/map/mapdata.mbtiles
           sudo docker cp mapsettings.json openremote-manager-1:/opt/map/mapsettings.json
-          sudo docker restart $(docker ps -q)
+          sudo docker-compose start
   
   Hostedzone:
     Type: AWS::Route53::HostedZone
     Properties:
       Name: !Ref Hostname
+  
+  StaticIP:
+    Type: AWS::EC2::EIP
+    Properties:
+      InstanceId: !Ref InstanceOR
+      Tags:
+        - Key: Name
+          Value: !Ref Name
   
   DNSRecords:
     Type: AWS::Route53::RecordSet
@@ -200,7 +226,7 @@ Resources:
       Type: A
       TTL: 900
       ResourceRecords:
-        - !GetAtt InstanceOR.PublicIp
+        - !GetAtt StaticIP.PublicIp
 
 
 
