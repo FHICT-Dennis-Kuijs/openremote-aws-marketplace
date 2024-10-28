@@ -8,12 +8,14 @@ Metadata:
           - Name
           - Instance
           - Hostname
+          - Keypair
+          - SSHLocation
       - Label:
           default: OpenRemote Configuration
         Parameters:
           - Password
-          - Maptiles
-          - Mapsettings
+          - MapTiles
+          - MapSettings
       - Label:
           default: E-mail Configuration
         Parameters:
@@ -21,10 +23,9 @@ Metadata:
           - SMTPEmail
           - SMTPPassword
 
-
 Parameters:
     Name:
-      Description: Choose a name for your OpenRemote Instance.
+      Description: The name for this EC2 Instance on the EC2 Overview page
       Type: String
       Default: OpenRemote
     Instance:
@@ -38,14 +39,20 @@ Parameters:
     Hostname:
       Description: Fill in the FQDN (Fully Qualified Domain Name) that you want to use for this OpenRemote instance
       Type: String
+    Keypair:
+      Description: Choose a keypair for SSH Access
+      Type: AWS::EC2::KeyPair::KeyName
+    SSHLocation:
+      Description: Fill in your Home IP for SSH Access
+      Type: String
     Password:
       Description: Create an (admin) password for your OpenRemote instance
       Type: String
       NoEcho: true
-    Maptiles:
+    MapTiles:
       Description: Put a link where the system can download your (custom) maptiles
       Type: String
-    Mapsettings:
+    MapSettings:
       Description: Put a link where the system can download your mapsettings.json file
       Type: String
     SMTPHost:
@@ -122,17 +129,6 @@ Resources:
       RouteTableId: !Ref RouteTable
       SubnetId: !Ref Subnet
 
-  
-  SSHKeyPair:
-    Type: AWS::EC2::KeyPair
-    Properties:
-      KeyFormat: pem
-      KeyName: OpenRemote
-      KeyType: rsa
-      Tags: 
-        - Key: Name
-          Value: !Ref Name
-  
   SecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
@@ -140,7 +136,7 @@ Resources:
       GroupName: !Ref Name
       VpcId: !Ref VPC
       SecurityGroupIngress:
-        - CidrIp: 0.0.0.0/0
+        - CidrIp: !Ref SSHLocation
           FromPort: 22
           IpProtocol: tcp
           ToPort: 22
@@ -168,10 +164,55 @@ Resources:
   
   InstanceOR:
     Type: AWS::EC2::Instance
+    Metadata:
+      AWS::CloudFormation::Init:
+        configSets:
+          default:  
+            - installOpenRemote
+
+        installOpenRemote:
+          commands:
+            01_install_docker:
+              command: |
+                sudo yum install -y docker
+                sudo service docker start
+
+            02_install_docker_compose:
+              command: |
+                sudo curl -L https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m) -o /usr/local/bin/docker-compose
+                sudo chmod +x /usr/local/bin/docker-compose
+              
+            03_download_config:
+              command: |
+                sudo mkdir openremote
+                sudo wget https://raw.githubusercontent.com/openremote/openremote/master/docker-compose.yml -P /openremote
+
+            04_create_instance:
+              command: !Sub |      
+                PUBLIC_IPV4=$(curl v4.ident.me 2>/dev/null)        
+                OR_HOSTNAME=${Hostname} OR_ADDITIONAL_HOSTNAMES=$PUBLIC_IPV4 OR_ADMIN_PASSWORD=${Password} OR_EMAIL_HOST=${SMTPHost} OR_EMAIL_USER=${SMTPEmail} OR_EMAIL_PASSWORD=${SMTPPassword} OR_EMAIL_FROM=${SMTPEmail} docker-compose -f /openremote/docker-compose.yml -p openremote up -d --no-start
+              
+            05_install_map:
+              command: !Sub |
+                if [[ -z "${MapTiles}" || -z "${MapSettings}" ]]; then
+                  echo "No MapTiles and MapSettings provided, using the default one"
+                  exit 0
+                fi
+
+                sudo mkdir map
+                sudo wget -O /map/mapdata.mbtiles "${MapTiles}"
+                sudo wget -O /map/mapsettings.json "${MapSettings}"
+                sudo docker cp /map/mapdata.mbtiles openremote-manager-1:/opt/map/mapdata.mbtiles
+                sudo docker cp /map/mapsettings.json openremote-manager-1:/opt/map/mapsettings.json
+          
+            06_start_instance:
+              command: |
+                sudo docker-compose -f /openremote/docker-compose.yml start
+
     Properties:
       ImageId: ami-00e73ddc3a6fc7dfe
       InstanceType: !FindInMap [InstanceType, default, !Ref Instance]
-      KeyName: !Ref SSHKeyPair
+      KeyName: !Ref Keypair
       SubnetId: !Ref Subnet
       SecurityGroupIds:
       -  !Ref SecurityGroup
@@ -185,26 +226,12 @@ Resources:
           VolumeType: gp3
           DeleteOnTermination: true
       UserData:
-        Fn::Base64: !Sub |
-          #!/bin/bash
-          sudo yum install htop -y
-          sudo yum install -y docker
-          sudo service docker start
-          sudo curl -L https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m) -o /usr/local/bin/docker-compose
-          sudo chmod +x /usr/local/bin/docker-compose
-          sudo mkdir openremote
-          cd openremote
-          sudo wget https://raw.githubusercontent.com/openremote/openremote/master/docker-compose.yml
-          PUBLIC_IPV4=$(curl v4.ident.me 2>/dev/null)
-          OR_HOSTNAME=$PUBLIC_IPV4 OR_SSL_PORT=443 OR_ADDITIONAL_HOSTNAMES="${Hostname}" OR_ADMIN_PASSWORD="${Password}" OR_EMAIL_HOST="${SMTPHost}" OR_EMAIL_USER="${SMTPEmail}" OR_EMAIL_PASSWORD="${SMTPPassword}" OR_EMAIL_FROM="${SMTPEmail}" docker-compose -p openremote up -d --no-start
-          mkdir map
-          cd map
-          sudo wget -O mapdata.mbtiles "${Maptiles}"
-          sudo wget -O mapsettings.json "${Mapsettings}"
-          sudo docker cp mapdata.mbtiles openremote-manager-1:/opt/map/mapdata.mbtiles
-          sudo docker cp mapsettings.json openremote-manager-1:/opt/map/mapsettings.json
-          sudo docker-compose start
-  
+        Fn::Base64:
+          Fn::Sub: |
+            #!/bin/bash -xe
+            yum -y install aws-cfn-bootstrap
+            /opt/aws/bin/cfn-init -v -s ${AWS::StackName} --resource InstanceOR
+
   Hostedzone:
     Type: AWS::Route53::HostedZone
     Properties:
