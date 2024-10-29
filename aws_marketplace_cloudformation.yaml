@@ -209,6 +209,11 @@ Resources:
               command: |
                 sudo docker-compose -f /openremote/docker-compose.yml start
 
+            07_create_systemd_service:
+              command: |
+                sudo systemctl enable docker
+                sudo systemctl start docker
+
     Properties:
       ImageId: ami-00e73ddc3a6fc7dfe
       InstanceType: !FindInMap [InstanceType, default, !Ref Instance]
@@ -254,6 +259,3 @@ Resources:
       TTL: 900
       ResourceRecords:
         - !GetAtt StaticIP.PublicIp
-
-
-
