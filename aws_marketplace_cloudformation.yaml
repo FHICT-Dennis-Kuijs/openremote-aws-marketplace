@@ -101,6 +101,7 @@ Resources:
   Subnet:
     Type: AWS::EC2::Subnet
     Properties:
+      AvailabilityZone: !Select [0, !GetAZs '']
       CidrBlock: 172.20.0.0/24
       VpcId: !Ref VPC
       MapPublicIpOnLaunch: true
@@ -188,9 +189,22 @@ Resources:
                 sudo wget https://raw.githubusercontent.com/openremote/openremote/master/docker-compose.yml -P /openremote
 
             04_create_instance:
-              command: !Sub |      
-                PUBLIC_IPV4=$(curl v4.ident.me 2>/dev/null)        
-                OR_HOSTNAME=${Hostname} OR_ADDITIONAL_HOSTNAMES=$PUBLIC_IPV4 OR_ADMIN_PASSWORD=${Password} OR_EMAIL_HOST=${SMTPHost} OR_EMAIL_USER=${SMTPEmail} OR_EMAIL_PASSWORD=${SMTPPassword} OR_EMAIL_FROM=${SMTPEmail} docker-compose -f /openremote/docker-compose.yml -p openremote up -d --no-start
+              command: !Sub |
+                PUBLIC_IPV4=$(curl v4.ident.me 2>/dev/null)
+
+                if [ -z "${Hostname}" ]; then
+                  export OR_HOSTNAME=$PUBLIC_IPV4
+                else
+                  export OR_HOSTNAME=${Hostname}
+                fi
+
+                export OR_ADMIN_PASSWORD=${Password}
+                export OR_EMAIL_HOST=${SMTPHost}
+                export OR_EMAIL_USER=${SMTPEmail}
+                export OR_EMAIL_PASSWORD=${SMTPPassword}
+                export OR_EMAIL_FROM=${SMTPEmail}
+
+                docker-compose -f /openremote/docker-compose.yml -p openremote up -d --no-start
               
             05_install_map:
               command: !Sub |
@@ -236,11 +250,6 @@ Resources:
             #!/bin/bash -xe
             yum -y install aws-cfn-bootstrap
             /opt/aws/bin/cfn-init -v -s ${AWS::StackName} --resource InstanceOR
-
-  Hostedzone:
-    Type: AWS::Route53::HostedZone
-    Properties:
-      Name: !Ref Hostname
   
   StaticIP:
     Type: AWS::EC2::EIP
@@ -249,13 +258,3 @@ Resources:
       Tags:
         - Key: Name
           Value: !Ref Name
-  
-  DNSRecords:
-    Type: AWS::Route53::RecordSet
-    Properties:
-      HostedZoneId: !Ref Hostedzone
-      Name: !Ref Hostname
-      Type: A
-      TTL: 900
-      ResourceRecords:
-        - !GetAtt StaticIP.PublicIp
