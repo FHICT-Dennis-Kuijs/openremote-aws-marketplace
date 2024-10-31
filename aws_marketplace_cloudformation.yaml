@@ -175,18 +175,18 @@ Resources:
           commands:
             01_install_docker:
               command: |
-                sudo yum install -y docker
-                sudo service docker start
+                sudo yum install -y docker > /var/log/cfdeploy.log 2>&1
+                sudo service docker start >> /var/log/cfdeploy.log 2>&1
 
             02_install_docker_compose:
               command: |
-                sudo curl -L https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m) -o /usr/local/bin/docker-compose
+                sudo curl -L https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m) -o /usr/local/bin/docker-compose >> /var/log/cfdeploy.log 2>&1
                 sudo chmod +x /usr/local/bin/docker-compose
               
             03_download_config:
               command: |
                 sudo mkdir openremote
-                sudo wget https://raw.githubusercontent.com/openremote/openremote/master/docker-compose.yml -P /openremote
+                sudo wget https://raw.githubusercontent.com/openremote/openremote/master/docker-compose.yml -P /openremote >> /var/log/cfdeploy.log 2>&1
 
             04_create_instance:
               command: !Sub |
@@ -194,8 +194,10 @@ Resources:
 
                 if [ -z "${Hostname}" ]; then
                   export OR_HOSTNAME=$PUBLIC_IPV4
+                  echo "No Hostname provided, using the public IP address" >> /var/log/cfdeploy.log 2>&1
                 else
                   export OR_HOSTNAME=${Hostname}
+                  echo "Using the provided Hostname" >> /var/log/cfdeploy.log 2>&1
                 fi
 
                 export OR_ADMIN_PASSWORD=${Password}
@@ -204,29 +206,29 @@ Resources:
                 export OR_EMAIL_PASSWORD=${SMTPPassword}
                 export OR_EMAIL_FROM=${SMTPEmail}
 
-                docker-compose -f /openremote/docker-compose.yml -p openremote up -d --no-start
+                docker-compose -f /openremote/docker-compose.yml -p openremote up -d --no-start >> /var/log/cfdeploy.log 2>&1
               
             05_install_map:
               command: !Sub |
                 if [[ -z "${MapTiles}" || -z "${MapSettings}" ]]; then
-                  echo "No MapTiles and MapSettings provided, using the default one"
+                  echo "No MapTiles and MapSettings provided, using the default one" >> /var/log/cfdeploy.log 2>&1
                   exit 0
                 fi
 
                 sudo mkdir map
-                sudo wget -O /map/mapdata.mbtiles "${MapTiles}"
-                sudo wget -O /map/mapsettings.json "${MapSettings}"
-                sudo docker cp /map/mapdata.mbtiles openremote-manager-1:/opt/map/mapdata.mbtiles
-                sudo docker cp /map/mapsettings.json openremote-manager-1:/opt/map/mapsettings.json
+                sudo wget -O /map/mapdata.mbtiles "${MapTiles}" >> /var/log/cfdeploy.log 2>&1
+                sudo wget -O /map/mapsettings.json "${MapSettings}" >> /var/log/cfdeploy.log 2>&1
+                sudo docker cp /map/mapdata.mbtiles openremote-manager-1:/opt/map/mapdata.mbtiles >> /var/log/cfdeploy.log 2>&1
+                sudo docker cp /map/mapsettings.json openremote-manager-1:/opt/map/mapsettings.json >> /var/log/cfdeploy.log 2>&1
           
             06_start_instance:
               command: |
-                sudo docker-compose -f /openremote/docker-compose.yml start
+                sudo docker-compose -f /openremote/docker-compose.yml start >> /var/log/cfdeploy.log 2>&1
 
             07_create_systemd_service:
               command: |
-                sudo systemctl enable docker
-                sudo systemctl start docker
+                sudo systemctl enable docker >> /var/log/cfdeploy.log 2>&1
+                sudo systemctl start docker >> /var/log/cfdeploy.log 2>&1
 
     Properties:
       ImageId: ami-00e73ddc3a6fc7dfe
