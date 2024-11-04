@@ -73,7 +73,7 @@ Mappings:
       Medium: t4g.medium
       Large: t4g.large
 
-Resources:   
+Resources:
   VPC:
     Type: AWS::EC2::VPC
     Properties:
@@ -231,8 +231,11 @@ Resources:
                 sudo systemctl start docker
 
     Properties:
-      ImageId: ami-00e73ddc3a6fc7dfe
-      InstanceType: !FindInMap [InstanceType, default, !Ref Instance]
+      ImageId: '{{resolve:ssm:/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-arm64}}'
+      InstanceType: !FindInMap
+        - InstanceType
+        - default
+        - !Ref Instance
       KeyName: !Ref Keypair
       SubnetId: !Ref Subnet
       SecurityGroupIds:
