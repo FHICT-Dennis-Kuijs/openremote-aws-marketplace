@@ -20,8 +20,12 @@ Metadata:
           default: E-mail Configuration
         Parameters:
           - SMTPHost
-          - SMTPEmail
+          - SMTPUser
           - SMTPPassword
+          - SMTPPort
+          - SMTPTLS
+          - SMTPFrom
+          - SMTPProtocol
 
 Parameters:
     Name:
@@ -56,15 +60,36 @@ Parameters:
       Description: Put a link where the system can download your mapsettings.json file
       Type: String
     SMTPHost:
-      Description: Fill in the SMTP Hostname you want to use for sending e-mails
+      Description: Fill in the SMTP Hostname for sending e-mails
       Type: String
-    SMTPEmail:
-      Description: Fill in the (From) E-mail address you want to use for sending e-mails
+    SMTPUser:
+      Description: Fill in the SMTP username for sending e-mails
       Type: String
     SMTPPassword:
-      Description: Fill in the SMTP password attached to your e-mail address you want to use for sending e-mails
+      Description: Fill in the SMTP password for sending e-mails
       Type: String
       NoEcho: true
+    SMTPPort:
+      Description: Fill in the SMTP port for sending e-mails
+      Type: Number
+      Default: 587
+    SMTPTLS:
+      Description: Select if you want to use TLS for sending e-mails
+      Type: String 
+      AllowedValues:
+        - true
+        - false
+      Default: true
+    SMTPFrom:
+      Description: Fill in the From e-mail address you want to use for sending e-mails
+      Type: String
+    SMTPProtocol:
+      Description: Select the SMTP protocol you want to use for sending e-mails (smtps = SSL)
+      Type: String
+      AllowedValues:
+        - smtp
+        - smtps
+      Default: smtps
 
 Mappings:
   InstanceType:
@@ -202,9 +227,12 @@ Resources:
 
                 export OR_ADMIN_PASSWORD=${Password}
                 export OR_EMAIL_HOST=${SMTPHost}
-                export OR_EMAIL_USER=${SMTPEmail}
+                export OR_EMAIL_USER=${SMTPUser}
                 export OR_EMAIL_PASSWORD=${SMTPPassword}
-                export OR_EMAIL_FROM=${SMTPEmail}
+                export OR_EMAIL_PORT=${SMTPPort}
+                export OR_EMAIL_TLS=${SMTPTLS}
+                export OR_EMAIL_FROM=${SMTPFrom}
+                export OR_EMAIL_PROTOCOL=${SMTPProtocol}
 
                 docker-compose -f /openremote/docker-compose.yml -p openremote up -d --no-start
               
@@ -229,7 +257,6 @@ Resources:
               command: |
                 sudo systemctl enable docker
                 sudo systemctl start docker
-
     Properties:
       ImageId: '{{resolve:ssm:/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-arm64}}'
       InstanceType: !FindInMap
