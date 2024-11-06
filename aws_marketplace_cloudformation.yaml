@@ -1,3 +1,5 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Deploys an OpenRemote instance
 Metadata:
   AWS::CloudFormation::Interface: 
     ParameterGroups:
@@ -43,11 +45,16 @@ Parameters:
       Description: Choose a keypair for SSH Access
       Type: AWS::EC2::KeyPair::KeyName
     SSHLocation:
-      Description: Fill in your Home IP for SSH Access
+      Description: Fill in your Home IP for SSH Access. Set CIDR to x.x.x.x/32.
       Type: String
+      AllowedPattern: (\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})/(\d{1,2})
+      ConstraintDescription: Must be a valid IP CIDR range of the form x.x.x.x/x.
     Password:
       Description: Create an (admin) password for your OpenRemote instance
       Type: String
+      MinLength: 8
+      AllowedPattern: ^(?=.*[0-9])(?=.*[a-z])(?=.*[A-Z])(?=.*[^0-9a-zA-Z])(?=\S+$).{8,}$
+      ConstraintDescription: Password must contain 1 or more uppercase characters. Password must contain 1 or more digit characters. Password must contain 1 or more special characters. Password must be 8 or more characters in length.
       NoEcho: true
     MapTiles:
       Description: Put a link where the system can download your (custom) maptiles
