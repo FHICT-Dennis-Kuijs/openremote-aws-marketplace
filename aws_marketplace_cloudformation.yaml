@@ -290,3 +290,15 @@ Resources:
       Tags:
         - Key: Name
           Value: !Ref Name
+
+Outputs:
+  InstanceID:
+    Description: The Instance ID of the newly created EC2 instance
+    Value: !Ref InstanceOR
+    Export:
+      Name: !Sub "${AWS::StackName}-InstanceID"
+  PublicIP:
+    Description: The Public IP Address of the newly created EC2 instance
+    Value: !GetAtt InstanceOR.PublicIp
+    Export:
+      Name: !Sub "${AWS::StackName}-PublicIP"
