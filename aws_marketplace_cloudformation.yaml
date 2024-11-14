@@ -43,7 +43,7 @@ Parameters:
         - Medium
         - Large
     Hostname:
-      Description: Fill in the FQDN (Fully Qualified Domain Name) that you want to use for this OpenRemote instance
+      Description: Optionally fill in the FQDN (Fully Qualified Domain Name) that you want to use for this OpenRemote instance
       Type: String
     Keypair:
       Description: Choose a keypair for SSH Access
@@ -264,6 +264,13 @@ Resources:
               command: |
                 sudo systemctl enable docker
                 sudo systemctl start docker
+
+            08_install_ssm_agent:
+              command: |
+                sudo yum install -y amazon-ssm-agent
+                sudo systemctl enable amazon-ssm-agent
+                sudo systemctl start amazon-ssm-agent
+
     Properties:
       ImageId: '{{resolve:ssm:/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-arm64}}'
       InstanceType: !FindInMap
@@ -289,7 +296,8 @@ Resources:
             #!/bin/bash -xe
             yum -y install aws-cfn-bootstrap
             /opt/aws/bin/cfn-init -v -s ${AWS::StackName} --resource InstanceOR
-  
+      IamInstanceProfile: !Ref InstanceProfile
+
   StaticIP:
     Type: AWS::EC2::EIP
     Properties:
@@ -297,6 +305,55 @@ Resources:
       Tags:
         - Key: Name
           Value: !Ref Name
+
+  # IAM role for SSM
+  SSMRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+      Policies:
+        - PolicyName: SSMPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ssm:SendCommand
+                  - ssm:ListInstanceAssociations
+                  - ssm:DescribeInstanceInformation
+                  - ec2:DescribeInstances
+                Resource: "*"
+
+  # Attach IAM role to EC2 instance
+  InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles:
+        - !Ref SSMRole
+
+  # SSM document to update Docker images
+  UpdateDockerImagesDocument:
+    Type: AWS::SSM::Document
+    Properties:
+      DocumentType: Command
+      Content:
+        schemaVersion: '2.2'
+        description: "Update Docker images"
+        mainSteps:
+          - action: aws:runShellScript
+            name: updateDockerImages
+            inputs:
+              runCommand:
+                - sudo docker-compose pull
+                - sudo docker-compose up -d
 
 Outputs:
   PublicIP:
