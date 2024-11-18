@@ -265,12 +265,6 @@ Resources:
                 sudo systemctl enable docker
                 sudo systemctl start docker
 
-            08_install_ssm_agent:
-              command: |
-                sudo yum install -y amazon-ssm-agent
-                sudo systemctl enable amazon-ssm-agent
-                sudo systemctl start amazon-ssm-agent
-
     Properties:
       ImageId: '{{resolve:ssm:/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-arm64}}'
       InstanceType: !FindInMap
