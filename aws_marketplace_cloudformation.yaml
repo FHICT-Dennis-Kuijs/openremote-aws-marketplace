@@ -300,17 +300,20 @@ Resources:
         - Key: Name
           Value: !Ref Name
 
-  # IAM role for SSM
+
+  # IAM Role for SSM
   SSMRole:
     Type: AWS::IAM::Role
-    Properties:
-      AssumeRolePolicyDocument:
+    Properties: 
+      AssumeRolePolicyDocument: 
         Version: '2012-10-17'
-        Statement:
+        Statement: 
           - Effect: Allow
-            Principal:
-              Service: ec2.amazonaws.com
-            Action: sts:AssumeRole
+            Principal: 
+              Service: 
+                - ec2.amazonaws.com
+            Action: 
+              - sts:AssumeRole
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
       Policies:
@@ -324,6 +327,7 @@ Resources:
                   - ssm:ListInstanceAssociations
                   - ssm:DescribeInstanceInformation
                   - ec2:DescribeInstances
+                  - secretsmanager:GetSecretValue
                 Resource: "*"
 
   # Attach IAM role to EC2 instance
@@ -332,6 +336,25 @@ Resources:
     Properties:
       Roles:
         - !Ref SSMRole
+
+  # Store secrets in Secrets Manager
+  OpenRemoteSecrets:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: !Sub "${InstanceOR}-Secrets"
+      SecretString: !Sub |
+        {
+          "OR_HOSTNAME": "${Hostname}",
+          "OR_ADMIN_PASSWORD": "${Password}",
+          "OR_EMAIL_HOST": "${SMTPHost}",
+          "OR_EMAIL_USER": "${SMTPUser}",
+          "OR_EMAIL_PASSWORD": "${SMTPPassword}",
+          "OR_EMAIL_PORT": "${SMTPPort}",
+          "OR_EMAIL_TLS": "${SMTPTLS}",
+          "OR_EMAIL_FROM": "${SMTPFrom}",
+          "OR_EMAIL_PROTOCOL": "${SMTPProtocol}"
+        }
+    DependsOn: InstanceOR
 
   # SSM document to update Docker images
   UpdateDockerImagesDocument:
@@ -346,8 +369,15 @@ Resources:
             name: updateDockerImages
             inputs:
               runCommand:
-                - sudo docker-compose pull
-                - sudo docker-compose up -d
+                - 'if [ ! -f /openremote/docker-compose.yml ]; then echo "docker-compose.yml not found"; exit 1; fi'
+                - 'TOKEN=$(curl -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 21600")'
+                - 'INSTANCE_ID=$(curl -H "X-aws-ec2-metadata-token: $TOKEN" http://169.254.169.254/latest/meta-data/instance-id)'
+                - 'SECRET_ID="${INSTANCE_ID}-Secrets"'
+                - 'SECRETS=$(aws secretsmanager get-secret-value --secret-id $SECRET_ID --query SecretString --output text)'
+                - 'eval $(echo $SECRETS | jq -r ''to_entries | .[] | "export \(.key)=\(.value)"'')'
+                - 'sudo docker-compose -f /openremote/docker-compose.yml pull || { echo "Failed to pull Docker images"; exit 1; }'
+                - 'sudo docker-compose -f /openremote/docker-compose.yml up -d || { echo "Failed to start Docker containers"; exit 1; }'
+    DependsOn: OpenRemoteSecrets
 
 Outputs:
   PublicIP:
