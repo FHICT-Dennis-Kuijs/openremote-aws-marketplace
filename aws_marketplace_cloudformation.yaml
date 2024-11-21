@@ -240,6 +240,7 @@ Resources:
                 export OR_EMAIL_TLS=${SMTPTLS}
                 export OR_EMAIL_FROM=${SMTPFrom}
                 export OR_EMAIL_PROTOCOL=${SMTPProtocol}
+                export OR_DEV_MODE=true
 
                 docker-compose -f /openremote/docker-compose.yml -p openremote up -d --no-start
               
@@ -327,6 +328,7 @@ Resources:
                   - ssm:ListInstanceAssociations
                   - ssm:DescribeInstanceInformation
                   - ec2:DescribeInstances
+                  - ec2:DescribeAddresses
                   - secretsmanager:GetSecretValue
                 Resource: "*"
 
@@ -352,11 +354,12 @@ Resources:
           "OR_EMAIL_PORT": "${SMTPPort}",
           "OR_EMAIL_TLS": "${SMTPTLS}",
           "OR_EMAIL_FROM": "${SMTPFrom}",
-          "OR_EMAIL_PROTOCOL": "${SMTPProtocol}"
+          "OR_EMAIL_PROTOCOL": "${SMTPProtocol}",
+          "OR_DEV_MODE": "true"
         }
     DependsOn: InstanceOR
 
-  # SSM document to update Docker images
+# SSM document to update Docker images
   UpdateDockerImagesDocument:
     Type: AWS::SSM::Document
     Properties:
@@ -369,14 +372,31 @@ Resources:
             name: updateDockerImages
             inputs:
               runCommand:
+                - 'echo "Checking if docker-compose.yml exists..."'
+                - 'printenv'
                 - 'if [ ! -f /openremote/docker-compose.yml ]; then echo "docker-compose.yml not found"; exit 1; fi'
+                - 'echo "Fetching EC2 metadata token..."'
                 - 'TOKEN=$(curl -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 21600")'
+                - 'echo "Fetching instance ID..."'
                 - 'INSTANCE_ID=$(curl -H "X-aws-ec2-metadata-token: $TOKEN" http://169.254.169.254/latest/meta-data/instance-id)'
+                - 'echo "Instance ID: $INSTANCE_ID"'
                 - 'SECRET_ID="${INSTANCE_ID}-Secrets"'
+                - 'echo "Fetching environment secrets from Secrets Manager..."'
                 - 'SECRETS=$(aws secretsmanager get-secret-value --secret-id $SECRET_ID --query SecretString --output text)'
+                - 'echo "Environment secrets fetched successfully, exporting as environment variables..."'
                 - 'eval $(echo $SECRETS | jq -r ''to_entries | .[] | "export \(.key)=\(.value)"'')'
+                - 'echo "OR_HOSTNAME from Secrets Manager: $OR_HOSTNAME"'
+                - 'if [ -z "$OR_HOSTNAME" ]; then'
+                - '  echo "OR_HOSTNAME is blank, fetching public IP address..."'
+                - '  OR_HOSTNAME=$(curl -H "X-aws-ec2-metadata-token: $TOKEN" http://169.254.169.254/latest/meta-data/public-ipv4)'
+                - '  export OR_HOSTNAME'
+                - '  echo "OR_HOSTNAME set to $OR_HOSTNAME"'
+                - 'fi'
+                - 'echo "Pulling Docker images..."'
+                - 'printenv'
                 - 'sudo docker-compose -f /openremote/docker-compose.yml pull || { echo "Failed to pull Docker images"; exit 1; }'
-                - 'sudo docker-compose -f /openremote/docker-compose.yml up -d || { echo "Failed to start Docker containers"; exit 1; }'
+                - 'echo "Starting Docker containers..."'
+                - 'sudo docker-compose -f /openremote/docker-compose.yml up -d --force-recreate || { echo "Failed to start Docker containers"; exit 1; }'
     DependsOn: OpenRemoteSecrets
 
 Outputs:
