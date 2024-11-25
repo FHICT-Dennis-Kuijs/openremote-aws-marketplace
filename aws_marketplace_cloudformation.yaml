@@ -374,7 +374,7 @@ Resources:
                 - 'INSTANCE_ID=$(curl -H "X-aws-ec2-metadata-token: $TOKEN" http://169.254.169.254/latest/meta-data/instance-id)'
                 - 'SECRET_ID="${INSTANCE_ID}-Secrets"'
                 - 'SECRETS=$(aws secretsmanager get-secret-value --secret-id $SECRET_ID --query SecretString --output text)'
-                - 'eval $(echo $SECRETS | jq -r ''to_entries | .[] | "export \(.key)=\(.value)"'')'
+                - 'eval $(echo $SECRETS | jq -r 'to_entries | .[] | "export \(.key)=\(.value)"')'
                 - 'sudo docker-compose -f /openremote/docker-compose.yml pull || { echo "Failed to pull Docker images"; exit 1; }'
                 - 'sudo docker-compose -f /openremote/docker-compose.yml up -d || { echo "Failed to start Docker containers"; exit 1; }'
     DependsOn: OpenRemoteSecrets
