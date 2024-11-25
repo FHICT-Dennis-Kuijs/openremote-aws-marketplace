@@ -373,7 +373,6 @@ Resources:
             inputs:
               runCommand:
                 - 'echo "Checking if docker-compose.yml exists..."'
-                - 'printenv'
                 - 'if [ ! -f /openremote/docker-compose.yml ]; then echo "docker-compose.yml not found"; exit 1; fi'
                 - 'echo "Fetching EC2 metadata token..."'
                 - 'TOKEN=$(curl -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 21600")'
@@ -392,11 +391,22 @@ Resources:
                 - '  export OR_HOSTNAME'
                 - '  echo "OR_HOSTNAME set to $OR_HOSTNAME"'
                 - 'fi'
+                - 'echo "Environment variables:"'
+                - 'echo "OR_HOSTNAME=$OR_HOSTNAME"'
+                - 'echo "OR_ADMIN_PASSWORD=$OR_ADMIN_PASSWORD"'
+                - 'echo "OR_EMAIL_HOST=$OR_EMAIL_HOST"'
+                - 'echo "OR_EMAIL_USER=$OR_EMAIL_USER"'
+                - 'echo "OR_EMAIL_PASSWORD=$OR_EMAIL_PASSWORD"'
+                - 'echo "OR_EMAIL_PORT=$OR_EMAIL_PORT"'
+                - 'echo "OR_EMAIL_TLS=$OR_EMAIL_TLS"'
+                - 'echo "OR_EMAIL_FROM=$OR_EMAIL_FROM"'
+                - 'echo "OR_EMAIL_PROTOCOL=$OR_EMAIL_PROTOCOL"'
+                - 'echo "Stopping Docker containers..."'
+                - 'sudo docker-compose -f /openremote/docker-compose.yml down || { echo "Failed to stop Docker containers"; exit 1; }' 
                 - 'echo "Pulling Docker images..."'
-                - 'printenv'
                 - 'sudo docker-compose -f /openremote/docker-compose.yml pull || { echo "Failed to pull Docker images"; exit 1; }'
                 - 'echo "Starting Docker containers..."'
-                - 'sudo docker-compose -f /openremote/docker-compose.yml up -d --force-recreate || { echo "Failed to start Docker containers"; exit 1; }'
+                - 'sudo docker-compose -f /openremote/docker-compose.yml up -d --force-recreate && docker image prune -af|| { echo "Failed to start Docker containers"; exit 1; }'
     DependsOn: OpenRemoteSecrets
 
 Outputs:
