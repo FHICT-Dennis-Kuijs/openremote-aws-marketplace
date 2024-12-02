@@ -265,7 +265,7 @@ Resources:
                 sudo systemctl enable docker
                 sudo systemctl start docker
     Properties:
-      ImageId: '{{resolve:ssm:/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-arm64}}'
+      ImageId: 'ami-00b777c899f47763b'
       InstanceType: !FindInMap
         - InstanceType
         - default
