@@ -109,6 +109,67 @@ Mappings:
       Small: t4g.small
       Medium: t4g.medium
       Large: t4g.large
+  RegionMap: 
+    us-east-1: 
+        ImageId: ami-00b777c899f47763b
+    eu-west-1: 
+        ImageId: ami-xxxxxxxxxxxxxxxxx
+    us-west-1: 
+        ImageId: ami-xxxxxxxxxxxxxxxxx
+    ap-southeast-1: 
+        ImageId: ami-xxxxxxxxxxxxxxxxx
+    ap-northeast-1: 
+        ImageId: ami-xxxxxxxxxxxxxxxxx
+    us-west-2: 
+        ImageId: ami-xxxxxxxxxxxxxxxxx
+    sa-east-1: 
+        ImageId: ami-xxxxxxxxxxxxxxxxx
+    ap-southeast-2: 
+        ImageId: ami-xxxxxxxxxxxxxxxxx
+    eu-central-1: 
+        ImageId: ami-xxxxxxxxxxxxxxxxx
+    ap-northeast-2: 
+        ImageId: ami-xxxxxxxxxxxxxxxxx
+    ap-south-1: 
+        ImageId: ami-xxxxxxxxxxxxxxxxx
+    us-east-2: 
+        ImageId: ami-xxxxxxxxxxxxxxxxx
+    ca-central-1: 
+        ImageId: ami-xxxxxxxxxxxxxxxxx
+    eu-west-2: 
+        ImageId: ami-xxxxxxxxxxxxxxxxx
+    eu-west-3: 
+        ImageId: ami-xxxxxxxxxxxxxxxxx
+    ap-northeast-3: 
+        ImageId: ami-xxxxxxxxxxxxxxxxx
+    eu-north-1: 
+        ImageId: ami-xxxxxxxxxxxxxxxxx
+    ap-east-1: 
+        ImageId: ami-xxxxxxxxxxxxxxxxx
+    me-south-1: 
+        ImageId: ami-xxxxxxxxxxxxxxxxx
+    af-south-1: 
+        ImageId: ami-xxxxxxxxxxxxxxxxx
+    eu-south-1: 
+        ImageId: ami-xxxxxxxxxxxxxxxxx
+    ap-southeast-3: 
+        ImageId: ami-xxxxxxxxxxxxxxxxx
+    me-central-1: 
+        ImageId: ami-xxxxxxxxxxxxxxxxx
+    eu-central-2: 
+        ImageId: ami-xxxxxxxxxxxxxxxxx
+    eu-south-2: 
+        ImageId: ami-xxxxxxxxxxxxxxxxx
+    ap-south-2: 
+        ImageId: ami-xxxxxxxxxxxxxxxxx
+    ap-southeast-4: 
+        ImageId: ami-xxxxxxxxxxxxxxxxx
+    il-central-1: 
+        ImageId: ami-xxxxxxxxxxxxxxxxx
+    ca-west-1: 
+        ImageId: ami-xxxxxxxxxxxxxxxxx
+    ap-southeast-5: 
+        ImageId: ami-xxxxxxxxxxxxxxxxx
 
 Resources:
   VPC:
