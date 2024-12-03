@@ -240,7 +240,6 @@ Resources:
                 export OR_EMAIL_TLS=${SMTPTLS}
                 export OR_EMAIL_FROM=${SMTPFrom}
                 export OR_EMAIL_PROTOCOL=${SMTPProtocol}
-                export OR_DEV_MODE=true
 
                 docker-compose -f /openremote/docker-compose.yml -p openremote up -d --no-start
               
@@ -354,8 +353,7 @@ Resources:
           "OR_EMAIL_PORT": "${SMTPPort}",
           "OR_EMAIL_TLS": "${SMTPTLS}",
           "OR_EMAIL_FROM": "${SMTPFrom}",
-          "OR_EMAIL_PROTOCOL": "${SMTPProtocol}",
-          "OR_DEV_MODE": "true"
+          "OR_EMAIL_PROTOCOL": "${SMTPProtocol}"
         }
     DependsOn: InstanceOR
 
@@ -410,6 +408,7 @@ Resources:
                 # Delete .env file
                 - 'echo "Cleaning up environment file..."'
                 - 'rm -f /openremote/.env || { echo "Failed to remove environment file, please delete /openremote/.env manually as it stores secrets"; exit 1; }'
+                - 'echo "Docker images updated successfully!"'
     DependsOn: OpenRemoteSecrets
 
 Outputs:
