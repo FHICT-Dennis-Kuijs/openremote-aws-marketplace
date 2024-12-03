@@ -12,6 +12,7 @@ Metadata:
           - Hostname
           - Keypair
           - SSHLocation
+          - CIDRBlock
       - Label:
           default: OpenRemote Configuration
         Parameters:
@@ -48,6 +49,10 @@ Parameters:
     Keypair:
       Description: Choose a keypair for SSH Access
       Type: AWS::EC2::KeyPair::KeyName
+    CIDRBlock:
+      Description: Please set CIDR to x.x.x.x/32 to allow one specific IP address access, 0.0.0.0/0 to allow all IP addresses access, or another CIDR range
+      Type: String
+      AllowedPattern: (\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})/(\d{1,2})
     SSHLocation:
       Description: Fill in your Home IP for SSH Access. Set CIDR to x.x.x.x/32.
       Type: String
@@ -168,28 +173,31 @@ Resources:
       GroupDescription: OpenRemote Security Group
       GroupName: !Ref Name
       VpcId: !Ref VPC
+      SecurityGroupEgress:
+        - CidrIp: 0.0.0.0/0
+          IpProtocol: "-1"
       SecurityGroupIngress:
         - CidrIp: !Ref SSHLocation
           FromPort: 22
           IpProtocol: tcp
           ToPort: 22
           Description: SSH Access
-        - CidrIp: 0.0.0.0/0
+        - CidrIp: !Ref CIDRBlock
           FromPort: 80
           IpProtocol: tcp
           ToPort: 80
           Description: HTTP Access
-        - CidrIp: 0.0.0.0/0
+        - CidrIp: !Ref CIDRBlock
           FromPort: 443
           IpProtocol: tcp
           ToPort: 443
           Description: HTTPS Access
-        - CidrIp: 0.0.0.0/0
+        - CidrIp: !Ref CIDRBlock
           FromPort: 8883
           IpProtocol: tcp
           ToPort: 8883
           Description: MQTT Access
-        - CidrIp: 0.0.0.0/0
+        - CidrIp: !Ref CIDRBlock
           FromPort: 162
           IpProtocol: udp
           ToPort: 162
