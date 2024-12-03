@@ -372,41 +372,44 @@ Resources:
             name: updateDockerImages
             inputs:
               runCommand:
+                # Check if docker-compose.yml exists as this is used for the update
                 - 'echo "Checking if docker-compose.yml exists..."'
                 - 'if [ ! -f /openremote/docker-compose.yml ]; then echo "docker-compose.yml not found"; exit 1; fi'
+                # Fetch EC2 metadata token to allow request access to EC2 metadata
                 - 'echo "Fetching EC2 metadata token..."'
                 - 'TOKEN=$(curl -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 21600")'
+                # Fetch instance ID from EC2 metadata
                 - 'echo "Fetching instance ID..."'
                 - 'INSTANCE_ID=$(curl -H "X-aws-ec2-metadata-token: $TOKEN" http://169.254.169.254/latest/meta-data/instance-id)'
                 - 'echo "Instance ID: $INSTANCE_ID"'
+                # Fetch secrets from Secrets Manager
+                - 'echo "Creating environment file..."'
                 - 'SECRET_ID="${INSTANCE_ID}-Secrets"'
-                - 'echo "Fetching environment secrets from Secrets Manager..."'
-                - 'SECRETS=$(aws secretsmanager get-secret-value --secret-id $SECRET_ID --query SecretString --output text)'
-                - 'echo "Environment secrets fetched successfully, exporting as environment variables..."'
-                - 'eval $(echo $SECRETS | jq -r ''to_entries | .[] | "export \(.key)=\(.value)"'')'
-                - 'echo "OR_HOSTNAME from Secrets Manager: $OR_HOSTNAME"'
-                - 'if [ -z "$OR_HOSTNAME" ]; then'
-                - '  echo "OR_HOSTNAME is blank, fetching public IP address..."'
-                - '  OR_HOSTNAME=$(curl -H "X-aws-ec2-metadata-token: $TOKEN" http://169.254.169.254/latest/meta-data/public-ipv4)'
-                - '  export OR_HOSTNAME'
-                - '  echo "OR_HOSTNAME set to $OR_HOSTNAME"'
-                - 'fi'
-                - 'echo "Environment variables:"'
-                - 'echo "OR_HOSTNAME=$OR_HOSTNAME"'
-                - 'echo "OR_ADMIN_PASSWORD=$OR_ADMIN_PASSWORD"'
-                - 'echo "OR_EMAIL_HOST=$OR_EMAIL_HOST"'
-                - 'echo "OR_EMAIL_USER=$OR_EMAIL_USER"'
-                - 'echo "OR_EMAIL_PASSWORD=$OR_EMAIL_PASSWORD"'
-                - 'echo "OR_EMAIL_PORT=$OR_EMAIL_PORT"'
-                - 'echo "OR_EMAIL_TLS=$OR_EMAIL_TLS"'
-                - 'echo "OR_EMAIL_FROM=$OR_EMAIL_FROM"'
-                - 'echo "OR_EMAIL_PROTOCOL=$OR_EMAIL_PROTOCOL"'
-                - 'echo "Stopping Docker containers..."'
-                - 'sudo docker-compose -f /openremote/docker-compose.yml down || { echo "Failed to stop Docker containers"; exit 1; }' 
+                # Create .env file from Secrets Manager output
+                - |
+                  aws secretsmanager get-secret-value --secret-id $SECRET_ID --query SecretString --output text | \
+                  jq -r 'to_entries | .[] | "\(.key)=\(.value)"' > /openremote/.env
+                # Check if OR_HOSTNAME is empty in .env, if so use public IP
+                - |
+                  OR_HOSTNAME_VALUE=$(grep "OR_HOSTNAME=" /openremote/.env | cut -d'=' -f2)
+                  if [ -z "$OR_HOSTNAME_VALUE" ]; then
+                    PUBLIC_IP=$(curl -H "X-aws-ec2-metadata-token: $TOKEN" http://169.254.169.254/latest/meta-data/public-ipv4)
+                    sed -i "s/OR_HOSTNAME=/OR_HOSTNAME=$PUBLIC_IP/" /openremote/.env
+                  fi
+                # Pull and stop Docker containers
                 - 'echo "Pulling Docker images..."'
-                - 'sudo docker-compose -f /openremote/docker-compose.yml pull || { echo "Failed to pull Docker images"; exit 1; }'
+                - 'sudo -E docker-compose -f /openremote/docker-compose.yml pull || { echo "Failed to pull Docker images"; exit 1; }'
+                - 'echo "Stopping Docker containers..."'
+                - 'sudo -E docker-compose -f /openremote/docker-compose.yml down || { echo "Failed to stop Docker containers"; exit 1; }'
+                # Start Docker containers using the .env file, force recreate and prune images
                 - 'echo "Starting Docker containers..."'
-                - 'sudo docker-compose -f /openremote/docker-compose.yml up -d --force-recreate && docker image prune -af|| { echo "Failed to start Docker containers"; exit 1; }'
+                - |
+                  sudo -E docker-compose -f /openremote/docker-compose.yml \
+                    --env-file /openremote/.env \
+                    up -d --force-recreate && docker image prune -af || { echo "Failed to start Docker containers"; exit 1; }
+                # Delete .env file
+                - 'echo "Cleaning up environment file..."'
+                - 'rm -f /openremote/.env || { echo "Failed to remove environment file, please delete /openremote/.env manually as it stores secrets"; exit 1; }'
     DependsOn: OpenRemoteSecrets
 
 Outputs:
