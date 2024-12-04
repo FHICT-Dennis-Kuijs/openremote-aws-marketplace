@@ -334,7 +334,10 @@ Resources:
                 sudo systemctl enable docker
                 sudo systemctl start docker
     Properties:
-      ImageId: 'ami-00b777c899f47763b'
+      ImageId: !FindInMap
+        - RegionMap
+        - us-east-1
+        - ImageId
       InstanceType: !FindInMap
         - InstanceType
         - default
