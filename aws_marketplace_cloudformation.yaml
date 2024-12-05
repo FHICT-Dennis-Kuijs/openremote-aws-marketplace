@@ -326,9 +326,10 @@ Resources:
                   - ssm:SendCommand
                   - ssm:ListInstanceAssociations
                   - ssm:DescribeInstanceInformation
+                  - ssm:GetParameter
+                  - ssm:GetParameters
                   - ec2:DescribeInstances
                   - ec2:DescribeAddresses
-                  - secretsmanager:GetSecretValue
                 Resource: "*"
 
   # Attach IAM role to EC2 instance
@@ -338,12 +339,13 @@ Resources:
       Roles:
         - !Ref SSMRole
 
-  # Store secrets in Secrets Manager ###### See if i can put in parameter manager instead of secrets manager
-  OpenRemoteSecrets:
-    Type: AWS::SecretsManager::Secret
+  # SSM Parameter to store all values
+  OpenRemoteParameters:
+    Type: AWS::SSM::Parameter
     Properties:
-      Name: !Sub "${InstanceOR}-Secrets"
-      SecretString: !Sub |
+      Name: !Sub "/${AWS::StackName}/OpenRemoteConfig"
+      Type: String
+      Value: !Sub |
         {
           "OR_HOSTNAME": "${Hostname}",
           "OR_ADMIN_PASSWORD": "${Password}",
@@ -374,19 +376,35 @@ Resources:
                 - 'echo "Checking if docker-compose.yml exists..."'
                 - 'if [ ! -f /openremote/docker-compose.yml ]; then echo "docker-compose.yml not found"; exit 1; fi'
                 # Fetch EC2 metadata token to allow request access to EC2 metadata
-                - 'echo "Fetching EC2 metadata token..."'
-                - 'TOKEN=$(curl -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 21600")'
-                # Fetch instance ID from EC2 metadata
-                - 'echo "Fetching instance ID..."'
-                - 'INSTANCE_ID=$(curl -H "X-aws-ec2-metadata-token: $TOKEN" http://169.254.169.254/latest/meta-data/instance-id)'
-                - 'echo "Instance ID: $INSTANCE_ID"'
-                # Fetch secrets from Secrets Manager
-                - 'echo "Creating environment file..."'
-                - 'SECRET_ID="${INSTANCE_ID}-Secrets"'
-                # Create .env file from Secrets Manager output
+                - 'echo "Fetching instance metadata..."'
                 - |
-                  aws secretsmanager get-secret-value --secret-id $SECRET_ID --query SecretString --output text | \
-                  jq -r 'to_entries | .[] | "\(.key)=\(.value)"' > /openremote/.env
+                  TOKEN=$(curl -X PUT "http://169.254.169.254/latest/api/token" \
+                    -H "X-aws-ec2-metadata-token-ttl-seconds: 21600")
+                  REGION=$(curl -H "X-aws-ec2-metadata-token: $TOKEN" \
+                    -s http://169.254.169.254/latest/meta-data/placement/region)
+                  INSTANCE_ID=$(curl -H "X-aws-ec2-metadata-token: $TOKEN" \
+                    http://169.254.169.254/latest/meta-data/instance-id)
+                  echo "Region: $REGION"
+                  echo "Instance ID: $INSTANCE_ID"
+                # Fetch stack name from instance tags
+                - 'echo "Fetching stack name..."'
+                -  STACK_NAME=$(aws ec2 describe-instances \
+                    --instance-id $INSTANCE_ID \
+                    --query 'Reservations[*].Instances[*].Tags[?Key==`aws:cloudformation:stack-name`].Value' \
+                    --output text)
+                - 'echo "Stack name: $STACK_NAME"'
+                # Fetch secrets from Parameter Store and create .env file
+                - 'echo "Creating environment file from parameters..."'
+                - |
+                    echo "Raw parameter store output:"
+                    aws ssm get-parameter \
+                      --name /$STACK_NAME/OpenRemoteConfig \
+                      --query Parameter.Value --output texteter.Value --output text | \
+
+                    aws ssm get-parameter \
+                      --name /$STACK_NAME/OpenRemoteConfig \
+                      --query Parameter.Value --output text | \
+                    jq -r 'to_entries | .[] | "\(.key)=\(.value)"' > /openremote/.env
                 # Check if OR_HOSTNAME is empty in .env, if so use public IP
                 - |
                   OR_HOSTNAME_VALUE=$(grep "OR_HOSTNAME=" /openremote/.env | cut -d'=' -f2)
@@ -409,10 +427,10 @@ Resources:
                     --env-file /openremote/.env \
                     up -d --force-recreate && docker image prune -af || { echo "Failed to start Docker containers"; exit 1; }
                 # Delete .env file
-                - 'echo "Cleaning up environment file..."'
-                - 'rm -f /openremote/.env || { echo "Failed to remove environment file, please delete /openremote/.env manually as it stores secrets"; exit 1; }'
+                #- 'echo "Cleaning up environment file..."'
+                #- 'rm -f /openremote/.env || { echo "Failed to remove environment file, please delete /openremote/.env manually as it stores secrets"; exit 1; }'
                 - 'echo "Docker images updated successfully!"'
-    DependsOn: OpenRemoteSecrets
+    DependsOn: OpenRemoteParameters
 
 Outputs:
   PublicIP:
