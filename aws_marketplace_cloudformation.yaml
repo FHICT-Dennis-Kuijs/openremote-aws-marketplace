@@ -338,7 +338,7 @@ Resources:
       Roles:
         - !Ref SSMRole
 
-  # Store secrets in Secrets Manager
+  # Store secrets in Secrets Manager ###### See if i can put in parameter manager instead of secrets manager
   OpenRemoteSecrets:
     Type: AWS::SecretsManager::Secret
     Properties:
@@ -399,6 +399,9 @@ Resources:
                 - 'sudo -E docker-compose -f /openremote/docker-compose.yml pull || { echo "Failed to pull Docker images"; exit 1; }'
                 - 'echo "Stopping Docker containers..."'
                 - 'sudo -E docker-compose -f /openremote/docker-compose.yml down || { echo "Failed to stop Docker containers"; exit 1; }'
+                # Remove existing Docker network if it exists
+                - 'echo "Removing existing Docker network..."'
+                - 'sudo docker network rm openremote_default || echo "Network openremote_default does not exist"'               
                 # Start Docker containers using the .env file, force recreate and prune images
                 - 'echo "Starting Docker containers..."'
                 - |
