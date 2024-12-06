@@ -343,7 +343,7 @@ Resources:
   OpenRemoteParameters:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: !Sub "/${AWS::StackName}/OpenRemoteConfig"
+      Name: !Sub "/openremote/${InstanceOR}/config"
       Type: String
       Value: !Sub |
         {
@@ -377,34 +377,24 @@ Resources:
                 - 'if [ ! -f /openremote/docker-compose.yml ]; then echo "docker-compose.yml not found"; exit 1; fi'
                 # Fetch EC2 metadata token to allow request access to EC2 metadata
                 - 'echo "Fetching instance metadata..."'
-                - |
-                  TOKEN=$(curl -X PUT "http://169.254.169.254/latest/api/token" \
-                    -H "X-aws-ec2-metadata-token-ttl-seconds: 21600")
-                  REGION=$(curl -H "X-aws-ec2-metadata-token: $TOKEN" \
-                    -s http://169.254.169.254/latest/meta-data/placement/region)
-                  INSTANCE_ID=$(curl -H "X-aws-ec2-metadata-token: $TOKEN" \
-                    http://169.254.169.254/latest/meta-data/instance-id)
-                  echo "Region: $REGION"
-                  echo "Instance ID: $INSTANCE_ID"
-                # Fetch stack name from instance tags
-                - 'echo "Fetching stack name..."'
-                -  STACK_NAME=$(aws ec2 describe-instances \
-                    --instance-id $INSTANCE_ID \
-                    --query 'Reservations[*].Instances[*].Tags[?Key==`aws:cloudformation:stack-name`].Value' \
-                    --output text)
-                - 'echo "Stack name: $STACK_NAME"'
+                - 'TOKEN=$(curl -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 21600")'
+                - 'INSTANCE_ID=$(curl -H "X-aws-ec2-metadata-token: $TOKEN" http://169.254.169.254/latest/meta-data/instance-id)'
+                - 'echo "Instance ID: $INSTANCE_ID"'
                 # Fetch secrets from Parameter Store and create .env file
-                - 'echo "Creating environment file from parameters..."'
                 - |
-                    echo "Raw parameter store output:"
-                    aws ssm get-parameter \
-                      --name /$STACK_NAME/OpenRemoteConfig \
-                      --query Parameter.Value --output texteter.Value --output text | \
-
-                    aws ssm get-parameter \
-                      --name /$STACK_NAME/OpenRemoteConfig \
-                      --query Parameter.Value --output text | \
-                    jq -r 'to_entries | .[] | "\(.key)=\(.value)"' > /openremote/.env
+                  PARAM_PATH="/openremote/$INSTANCE_ID/config"
+                  echo "Creating env file from parameters from: $PARAM_PATH"
+                
+                  aws ssm get-parameter \
+                    --name "$PARAM_PATH" \
+                    --query Parameter.Value \
+                    --output text | \
+                  jq -r 'to_entries | .[] | "\(.key)=\(.value)"' > /openremote/.env
+                  
+                  if [ $? -ne 0 ]; then
+                    echo "Failed to fetch parameters from SSM"
+                    exit 1
+                  fi
                 # Check if OR_HOSTNAME is empty in .env, if so use public IP
                 - |
                   OR_HOSTNAME_VALUE=$(grep "OR_HOSTNAME=" /openremote/.env | cut -d'=' -f2)
@@ -427,8 +417,8 @@ Resources:
                     --env-file /openremote/.env \
                     up -d --force-recreate && docker image prune -af || { echo "Failed to start Docker containers"; exit 1; }
                 # Delete .env file
-                #- 'echo "Cleaning up environment file..."'
-                #- 'rm -f /openremote/.env || { echo "Failed to remove environment file, please delete /openremote/.env manually as it stores secrets"; exit 1; }'
+                - 'echo "Cleaning up environment file..."'
+                - 'rm -f /openremote/.env || { echo "Failed to remove environment file, please delete /openremote/.env manually as it stores secrets"; exit 1; }'
                 - 'echo "Docker images updated successfully!"'
     DependsOn: OpenRemoteParameters
 
