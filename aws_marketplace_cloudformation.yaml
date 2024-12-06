@@ -298,10 +298,9 @@ Resources:
       InstanceId: !Ref InstanceOR
       Tags:
         - Key: Name
-          Value: !Ref Name
+          Value: !Ref Name 
 
-
-  # IAM Role for SSM
+  # IAM Role for retriving required data to recreate the .env file while updating the Docker images in UpdateDockerImagesDocument
   SSMRole:
     Type: AWS::IAM::Role
     Properties: 
@@ -323,23 +322,18 @@ Resources:
             Statement:
               - Effect: Allow
                 Action:
-                  - ssm:SendCommand
-                  - ssm:ListInstanceAssociations
-                  - ssm:DescribeInstanceInformation
-                  - ssm:GetParameter
-                  - ssm:GetParameters
-                  - ec2:DescribeInstances
-                  - ec2:DescribeAddresses
+                  - ec2:DescribeInstances # For retrieval of INSTANCE_ID and PUBLIC_IP
+                  - ssm:GetParameter # For retrieval of parameters
                 Resource: "*"
 
-  # Attach IAM role to EC2 instance
+  # Attach IAM role to EC2 instance 
   InstanceProfile:
     Type: AWS::IAM::InstanceProfile
     Properties:
       Roles:
         - !Ref SSMRole
 
-  # SSM Parameter to store all values
+  # SSM Parameter to store values required to recreate the .env file while updating the Docker images in UpdateDockerImagesDocument
   OpenRemoteParameters:
     Type: AWS::SSM::Parameter
     Properties:
@@ -400,6 +394,7 @@ Resources:
                   OR_HOSTNAME_VALUE=$(grep "OR_HOSTNAME=" /openremote/.env | cut -d'=' -f2)
                   if [ -z "$OR_HOSTNAME_VALUE" ]; then
                     PUBLIC_IP=$(curl -H "X-aws-ec2-metadata-token: $TOKEN" http://169.254.169.254/latest/meta-data/public-ipv4)
+                    echo "No Hostname provided, using the public IP address: $PUBLIC_IP"
                     sed -i "s/OR_HOSTNAME=/OR_HOSTNAME=$PUBLIC_IP/" /openremote/.env
                   fi
                 # Pull and stop Docker containers
@@ -407,7 +402,7 @@ Resources:
                 - 'sudo -E docker-compose -f /openremote/docker-compose.yml pull || { echo "Failed to pull Docker images"; exit 1; }'
                 - 'echo "Stopping Docker containers..."'
                 - 'sudo -E docker-compose -f /openremote/docker-compose.yml down || { echo "Failed to stop Docker containers"; exit 1; }'
-                # Remove existing Docker network if it exists
+                # Remove existing Docker network if it exists to avoid conflicts
                 - 'echo "Removing existing Docker network..."'
                 - 'sudo docker network rm openremote_default || echo "Network openremote_default does not exist"'               
                 # Start Docker containers using the .env file, force recreate and prune images
