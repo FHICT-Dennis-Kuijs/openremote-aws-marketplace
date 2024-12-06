@@ -322,9 +322,8 @@ Resources:
             Statement:
               - Effect: Allow
                 Action:
-                  - ec2:DescribeInstances # For retrieval of INSTANCE_ID and PUBLIC_IP
                   - ssm:GetParameter # For retrieval of parameters
-                Resource: "*"
+                Resource: !Sub 'arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/openremote/*'
 
   # Attach IAM role to EC2 instance 
   InstanceProfile:
