@@ -414,7 +414,6 @@ Resources:
                 - 'echo "Cleaning up environment file..."'
                 - 'rm -f /openremote/.env || { echo "Failed to remove environment file, please delete /openremote/.env manually as it stores secrets"; exit 1; }'
                 - 'echo "Docker images updated successfully!"'
-    DependsOn: OpenRemoteParameters
 
 Outputs:
   PublicIP:
