@@ -398,18 +398,18 @@ Resources:
                   fi
                 # Pull and stop Docker containers
                 - 'echo "Pulling Docker images..."'
-                - 'sudo -E docker-compose -f /openremote/docker-compose.yml pull || { echo "Failed to pull Docker images"; exit 1; }'
+                - 'sudo docker-compose -f /openremote/docker-compose.yml pull || { echo "Failed to pull Docker images"; exit 1; }'
                 - 'echo "Stopping Docker containers..."'
-                - 'sudo -E docker-compose -f /openremote/docker-compose.yml down || { echo "Failed to stop Docker containers"; exit 1; }'
+                - 'sudo docker-compose -f /openremote/docker-compose.yml down || { echo "Failed to stop Docker containers"; exit 1; }'
                 # Remove existing Docker network if it exists to avoid conflicts
                 - 'echo "Removing existing Docker network..."'
                 - 'sudo docker network rm openremote_default || echo "Network openremote_default does not exist"'               
                 # Start Docker containers using the .env file, force recreate and prune images
                 - 'echo "Starting Docker containers..."'
                 - |
-                  sudo -E docker-compose -f /openremote/docker-compose.yml \
+                  sudo docker-compose -f /openremote/docker-compose.yml \
                     --env-file /openremote/.env \
-                    up -d --force-recreate && docker image prune -af || { echo "Failed to start Docker containers"; exit 1; }
+                    up -d && docker image prune -af || { echo "Failed to start Docker containers"; exit 1; }
                 # Delete .env file
                 - 'echo "Cleaning up environment file..."'
                 - 'rm -f /openremote/.env || { echo "Failed to remove environment file, please delete /openremote/.env manually as it stores secrets"; exit 1; }'
