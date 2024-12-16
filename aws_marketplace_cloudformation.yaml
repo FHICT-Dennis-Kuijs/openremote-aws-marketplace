@@ -44,7 +44,7 @@ Parameters:
         - Medium
         - Large
     Hostname:
-      Description: Fill in the FQDN (Fully Qualified Domain Name) that you want to use for this OpenRemote instance
+      Description: Optionally fill in the FQDN (Fully Qualified Domain Name) that you want to use for this OpenRemote instance
       Type: String
     Keypair:
       Description: Choose a keypair for SSH Access
@@ -333,6 +333,7 @@ Resources:
               command: |
                 sudo systemctl enable docker
                 sudo systemctl start docker
+
     Properties:
       ImageId: !FindInMap
         - RegionMap
@@ -361,14 +362,157 @@ Resources:
             #!/bin/bash -xe
             yum -y install aws-cfn-bootstrap
             /opt/aws/bin/cfn-init -v -s ${AWS::StackName} --resource InstanceOR
-  
+      IamInstanceProfile: !Ref InstanceProfile
+
   StaticIP:
     Type: AWS::EC2::EIP
     Properties:
       InstanceId: !Ref InstanceOR
       Tags:
         - Key: Name
-          Value: !Ref Name
+          Value: !Ref Name 
+
+  # IAM Role for retriving required data to recreate the .env file while updating the Docker images in UpdateDockerImagesDocument
+  SSMRole:
+    Type: AWS::IAM::Role
+    Properties: 
+      AssumeRolePolicyDocument: 
+        Version: '2012-10-17'
+        Statement: 
+          - Effect: Allow
+            Principal: 
+              Service: 
+                - ec2.amazonaws.com
+            Action: 
+              - sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+      Policies:
+        - PolicyName: SSMPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ssm:GetParameter # For retrieval of parameters
+                Resource: !Sub 'arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/openremote/*'
+
+  # Attach IAM role to EC2 instance 
+  InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles:
+        - !Ref SSMRole
+
+  # SSM Parameter to store values required to recreate the .env file while updating the Docker images in UpdateDockerImagesDocument
+  OpenRemoteParameters:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub "/openremote/${InstanceOR}/config"
+      Type: String
+      Value: !Sub |
+        {
+          "OR_HOSTNAME": "${Hostname}",
+          "OR_ADMIN_PASSWORD": "${Password}",
+          "OR_EMAIL_HOST": "${SMTPHost}",
+          "OR_EMAIL_USER": "${SMTPUser}",
+          "OR_EMAIL_PASSWORD": "${SMTPPassword}",
+          "OR_EMAIL_PORT": "${SMTPPort}",
+          "OR_EMAIL_TLS": "${SMTPTLS}",
+          "OR_EMAIL_FROM": "${SMTPFrom}",
+          "OR_EMAIL_PROTOCOL": "${SMTPProtocol}"
+        }
+    DependsOn: InstanceOR
+
+# SSM document to update Docker images
+  UpdateDockerImagesDocument:
+    Type: AWS::SSM::Document
+    Properties:
+      DocumentType: Command
+      Content:
+        schemaVersion: '2.2'
+        description: "Update Docker images"
+        mainSteps:
+          - action: aws:runShellScript
+            name: updateDockerImages
+            inputs:
+              runCommand:
+                # Check if docker-compose.yml exists as this is used for the update
+                - 'echo "Checking if docker-compose.yml exists..."'
+                - 'if [ ! -f /openremote/docker-compose.yml ]; then echo "docker-compose.yml not found"; exit 1; fi'
+                # Fetch EC2 metadata token to allow request access to EC2 metadata
+                - 'echo "Fetching instance metadata..."'
+                - 'TOKEN=$(curl -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 21600")'
+                - 'INSTANCE_ID=$(curl -H "X-aws-ec2-metadata-token: $TOKEN" http://169.254.169.254/latest/meta-data/instance-id)'
+                - 'echo "Instance ID: $INSTANCE_ID"'
+                # Fetch secrets from Parameter Store and create .env file
+                - |
+                  PARAM_PATH="/openremote/$INSTANCE_ID/config"
+                  echo "Creating env file from parameters from: $PARAM_PATH"
+                
+                  aws ssm get-parameter \
+                    --name "$PARAM_PATH" \
+                    --query Parameter.Value \
+                    --output text | \
+                  jq -r 'to_entries | .[] | "\(.key)=\(.value)"' > /openremote/.env
+                  
+                  if [ $? -ne 0 ]; then
+                    echo "Failed to fetch parameters from SSM"
+                    exit 1
+                  fi
+                # Check if OR_HOSTNAME is empty in .env, if so use public IP
+                - |
+                  OR_HOSTNAME_VALUE=$(grep "OR_HOSTNAME=" /openremote/.env | cut -d'=' -f2)
+                  if [ -z "$OR_HOSTNAME_VALUE" ]; then
+                    PUBLIC_IP=$(curl -H "X-aws-ec2-metadata-token: $TOKEN" http://169.254.169.254/latest/meta-data/public-ipv4)
+                    echo "No Hostname provided, using the public IP address: $PUBLIC_IP"
+                    sed -i "s/OR_HOSTNAME=/OR_HOSTNAME=$PUBLIC_IP/" /openremote/.env
+                  fi
+                # Pull and stop Docker containers
+                - 'echo "Pulling Docker images..."'
+                - 'sudo docker-compose -f /openremote/docker-compose.yml pull || { echo "Failed to pull Docker images"; exit 1; }'
+                - 'echo "Stopping Docker containers..."'
+                - 'sudo docker-compose -f /openremote/docker-compose.yml down || { echo "Failed to stop Docker containers"; exit 1; }'
+                # Remove existing Docker network if it exists to avoid conflicts
+                - 'echo "Removing existing Docker network..."'
+                - 'sudo docker network rm openremote_default || echo "Network openremote_default does not exist"'               
+                # Start Docker containers using the .env file, force recreate and prune images
+                - 'echo "Starting Docker containers..."'
+                - |
+                  sudo docker-compose -f /openremote/docker-compose.yml \
+                    --env-file /openremote/.env \
+                    up -d && docker image prune -af || { echo "Failed to start Docker containers"; exit 1; }
+                # Delete .env file
+                - 'echo "Cleaning up environment file..."'
+                - 'rm -f /openremote/.env || { echo "Failed to remove environment file, please delete /openremote/.env manually as it stores secrets"; exit 1; }'
+                - 'echo "Docker images updated successfully!"'
+
+  # New SSM document to update packages including Docker
+  UpdatePackagesDocument:
+    Type: AWS::SSM::Document
+    Properties:
+      DocumentType: Command
+      Content:
+        schemaVersion: '2.2'
+        description: "Update system packages and Docker"
+        mainSteps:
+          - action: aws:runShellScript
+            name: updatePackages
+            inputs:
+              runCommand:
+                - 'echo "Updating system packages..."'
+                - |
+                  if ! sudo yum update -y 2>&1; then
+                    echo "Failed to update system packages"
+                    exit 1
+                  fi
+                - 'echo "Restarting Docker service..."'
+                - |
+                  if ! sudo systemctl restart docker 2>&1; then
+                    echo "Failed to restart Docker"
+                    exit 1
+                  fi
+                - 'echo "System packages and Docker updated successfully!"'
 
 Outputs:
   PublicIP:
