@@ -415,6 +415,33 @@ Resources:
                 - 'rm -f /openremote/.env || { echo "Failed to remove environment file, please delete /openremote/.env manually as it stores secrets"; exit 1; }'
                 - 'echo "Docker images updated successfully!"'
 
+  # New SSM document to update packages including Docker
+  UpdatePackagesDocument:
+    Type: AWS::SSM::Document
+    Properties:
+      DocumentType: Command
+      Content:
+        schemaVersion: '2.2'
+        description: "Update system packages and Docker"
+        mainSteps:
+          - action: aws:runShellScript
+            name: updatePackages
+            inputs:
+              runCommand:
+                - 'echo "Updating system packages..."'
+                - |
+                  if ! sudo yum update -y 2>&1; then
+                    echo "Failed to update system packages"
+                    exit 1
+                  fi
+                - 'echo "Restarting Docker service..."'
+                - |
+                  if ! sudo systemctl restart docker 2>&1; then
+                    echo "Failed to restart Docker"
+                    exit 1
+                  fi
+                - 'echo "System packages and Docker updated successfully!"'
+
 Outputs:
   PublicIP:
     Description: The Public IP Address of the newly created EC2 instance
