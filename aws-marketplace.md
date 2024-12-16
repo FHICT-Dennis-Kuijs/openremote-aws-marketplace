@@ -3,15 +3,15 @@
 We have created an app for the AWS Marketplace to make deployment easier. This guide describes how to configure the instance using the special AWS CloudFormation template.
 
 ## Subscribe to the AWS Marketplace app
-Step 1: Search for OpenRemote on the [AWS Marketplace](https://aws.amazon.com/marketplace) and click on the listing.
-Step 2: Click on the orange button 'View purchase options'.
-Step 3: Accept the EULA by pressing the 'Accept Terms' button
-Step 4: You're now subscribed to the free OpenRemote Marketplace app. It will take a couple of minutes to process your subscription. After that, the 'Continue to Configuration' button becomes available.
-Step 5: When the subscription is fully processed, click on the 'Continue to Configuration' button.
-Step 6: Select a software version (By default, the latest version is already selected) and choose in which AWS region you want to deploy the software.
-Step 7: After selecting the options, press the 'Continue to Launch' button
-Step 8: Review your choices and press the 'Launch' button. You will now be redirected to the AWS CloudFormation page.
-Step 9: When the AWS CloudFormation page is displayed, press the 'Next' button.
+1. Search for OpenRemote on the [AWS Marketplace](https://aws.amazon.com/marketplace) and click on the listing.
+2. Click on the orange button 'View purchase options'.
+3. Accept the EULA by pressing the 'Accept Terms' button
+4. You're now subscribed to the free OpenRemote Marketplace app. It will take a couple of minutes to process your subscription. After that, the 'Continue to Configuration' button becomes available.
+5. When the subscription is fully processed, click on the 'Continue to Configuration' button.
+6. Select a software version (By default, the latest version is already selected) and choose in which AWS region you want to deploy the software.
+7. After selecting the options, press the 'Continue to Launch' button
+8. Review your choices and press the 'Launch' button. You will now be redirected to the AWS CloudFormation page.
+9. Then the AWS CloudFormation page is displayed, press the 'Next' button.
 
 ## Instance Configuration
 Now we're successfully subscribed to the OpenRemote marketplace app, we can start configuring it. In the section below, you will find a detailed description of each AWS CloudFormation parameter that's available in the template.
@@ -25,9 +25,9 @@ This name is used for recognizing the (OpenRemote) EC2 instance on the overview 
 
 #### `Instance Type`
 You can choose an instance based on your monthly budget. There are three options available:
-- `t4g.small` - `2 vCPU` / `2 GB RAM` - around $10 dollar
-- `t4g.medium` - `2 vCPU` / `4 GB RAM` - around $25 dollar
-- `t4g.large` - `2 vCPU` / `8 GB RAM` - around $50 dollar
+- `t4g.small` - `2 vCPU` / `2 GB RAM` - around $10 dollars
+- `t4g.medium` - `2 vCPU` / `4 GB RAM` - around $25 dollars
+- `t4g.large` - `2 vCPU` / `8 GB RAM` - around $50 dollars
 
 #### `Hostname`
 You can fill in the `FQDN (Fully Qualified Domain Name)` that you want to use for this OpenRemote instance. If no value is submitted, you can access the software via the public `IPv4 address` from the EC2 instance.
