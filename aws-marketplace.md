@@ -59,18 +59,9 @@ The password must meet the following conditions:
 - The minimum length is eight characters
 - Must have at least one special character
 
-#### `Map tiles`
-The software uses a small portion from the city of Rotterdam by default. You can change this by providing a publicly accessible URL where the system can download your custom map tiles (.mbtiles) 
-
-More information about getting (custom) map tiles can be found [here](https://docs.openremote.io/docs/developer-guide/working-on-ui-and-apps/).
-
-#### `Map settings`
-Before the system can use your custom map, it needs to know what the boundaries (coordinates) are and where the center of the map is.
-You must change these details in the `mapsettings.json` file. After that, you can provide a publicly accessible URL where the system can download this file.
-
-An example file can be found [here](https://github.com/openremote/openremote/blob/master/manager/src/map/mapsettings.json).
-
 ## E-mail Configuration
+
+The email configuration is not mandatory. All fields can be left blank / default if email is not required. 
 
 #### `SMTPHost`
 Provide the `SMTP` hostname that you want to use for sending e-mails.
@@ -84,8 +75,16 @@ Provide the `SMTP` password that corresponds to the hostname and user.
 #### `SMTPPort`
 The system is using port `587 (TLS)` by default for sending e-mails. If you want to use something else, for example, `465 (SSL)`, You can change it here.
 
+#### `SMTPTLS`
+Select if you want to use TLS for sending e-mails. Choose between `true` or `false`.
+
 #### `SMTPFrom`
-Provide the e-mail address that you want to use for sending e-mails. The e-mail address must be accessible by the `SMTP` host.
+Provide the e-mail address that you want to use for sending e-mails. The e-mail address must be usable by the `SMTP` host.
+
+#### `SMTPProtocol`
+Select the SMTP protocol you want to use for sending e-mails. Choose between `smtp` or `smtps` (smtps = SSL).
+
+# Updating 
 
 ## Update OpenRemote
 
@@ -102,6 +101,16 @@ Provide the e-mail address that you want to use for sending e-mails. The e-mail 
 1. Access the AWS Systems Manager via your AWS Console (note the region)
 2. Under Node Tools, press **Run Command**, then **Run command** again
 3. Search for `packages` and select the **OpenRemote-UpdatePackagesDocument-xxxxxxxxxxxx**
+4. Scroll down to the **Target** selection section, select **Choose instances manually**, and select the OpenRemote instance
+5. Press the **Run** button at the bottom of the page
+6. The next page will show the status of the command, and the below once the command has run successfully and any messages
+7. Clicking on the Instance ID will show the output of the commands
+
+## Update EC2 Instance OS
+
+1. Access the AWS Systems Manager via your AWS Console (note the region)
+2. Under Node Tools, press **Run Command**, then **Run command** again
+3. Search for `docker` and select the **OpenRemote-UpdateAWSLinuxOSDocument-xxxxxxxxxxxx**
 4. Scroll down to the **Target** selection section, select **Choose instances manually**, and select the OpenRemote instance
 5. Press the **Run** button at the bottom of the page
 6. The next page will show the status of the command, and the below once the command has run successfully and any messages
