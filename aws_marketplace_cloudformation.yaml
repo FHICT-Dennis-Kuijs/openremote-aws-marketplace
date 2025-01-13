@@ -524,3 +524,4 @@ Outputs:
     Value: !GetAtt InstanceOR.PublicIp
     Export:
       Name: !Sub "${AWS::StackName}-PublicIP"
+      
