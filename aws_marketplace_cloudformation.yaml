@@ -18,7 +18,7 @@ Metadata:
         Parameters:
           - Password
       - Label:
-          default: E-mail Configuration
+          default: E-mail Configuration (Optional)
         Parameters:
           - SMTPHost
           - SMTPUser
@@ -64,31 +64,31 @@ Parameters:
       ConstraintDescription: Password must contain 1 or more uppercase characters. Password must contain 1 or more digit characters. Password must contain 1 or more special characters. Password must be 8 or more characters in length.
       NoEcho: true
     SMTPHost:
-      Description: Fill in the SMTP Hostname for sending e-mails
+      Description: (Optional) Fill in the SMTP Hostname for sending e-mails
       Type: String
     SMTPUser:
-      Description: Fill in the SMTP username for sending e-mails
+      Description: (Optional) Fill in the SMTP username for sending e-mails
       Type: String
     SMTPPassword:
-      Description: Fill in the SMTP password for sending e-mails
+      Description: (Optional) Fill in the SMTP password for sending e-mails
       Type: String
       NoEcho: true
     SMTPPort:
-      Description: Fill in the SMTP port for sending e-mails
+      Description: (Optional) Fill in the SMTP port for sending e-mails
       Type: Number
       Default: 587
     SMTPTLS:
-      Description: Select if you want to use TLS for sending e-mails
+      Description: (Optional) Select if you want to use TLS for sending e-mails
       Type: String 
       AllowedValues:
         - true
         - false
       Default: true
     SMTPFrom:
-      Description: Fill in the From e-mail address you want to use for sending e-mails
+      Description: (Optional) Fill in the From e-mail address you want to use for sending e-mails
       Type: String
     SMTPProtocol:
-      Description: Select the SMTP protocol you want to use for sending e-mails (smtps = SSL)
+      Description: (Optional) Select the SMTP protocol you want to use for sending e-mails (smtps = SSL)
       Type: String
       AllowedValues:
         - smtp
@@ -524,4 +524,3 @@ Outputs:
     Value: !GetAtt InstanceOR.PublicIp
     Export:
       Name: !Sub "${AWS::StackName}-PublicIP"
-      
