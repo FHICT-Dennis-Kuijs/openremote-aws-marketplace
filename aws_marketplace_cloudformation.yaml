@@ -473,7 +473,7 @@ Resources:
       DocumentType: Command
       Content:
         schemaVersion: '2.2'
-        description: "Update system packages and Docker"
+        description: "Update system packages and Docker (DOCKER AND OPENREMOTE WILL BE RESTARTED ONCE COMPLETE)"
         mainSteps:
           - action: aws:runShellScript
             name: updatePackages
@@ -492,6 +492,31 @@ Resources:
                     exit 1
                   fi
                 - 'echo "System packages and Docker updated successfully!"'
+
+  # New SSM document to update the Amazon Linux OS
+  UpdateAWSLinuxOSDocument:
+    Type: AWS::SSM::Document
+    Properties:
+      DocumentType: Command
+      Content:
+        schemaVersion: '2.2'
+        description: "Update the system OS (EC2 INSTANCE WILL REBOOT AUTOMATICALLY ONCE COMPLETE)"
+        mainSteps:
+          - action: aws:runShellScript
+            name: updateAWSLinux
+            inputs:
+              runCommand:
+                - 'echo "Starting Amazon Linux OS update..."'
+                - |
+                  if ! sudo dnf upgrade --releasever=latest -y --quiet 2>/dev/null; then
+                    echo "Error: Update failed. Full error log:"
+                    sudo dnf upgrade --releasever=latest -y
+                    exit 1
+                  fi
+                - 'sudo dnf clean all --quiet'
+                - 'echo "Rebooting EC2 instance"'
+                - "sudo reboot now"
+                - 'echo "Amazon Linux OS update completed successfully"'
 
 Outputs:
   PublicIP:
