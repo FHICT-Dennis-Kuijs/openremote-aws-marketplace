@@ -57,11 +57,11 @@ Parameters:
       AllowedPattern: (\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})/(\d{1,2})
       ConstraintDescription: Must be a valid IP CIDR range of the form x.x.x.x/x.
     Password:
-      Description: Create an (admin) password for your OpenRemote instance
+      Description: Create an (admin) password for your OpenRemote instance. Password must contain 1 or more uppercase characters. Password must contain 1 or more digit characters, 1 or more special characters and must be 8 or more characters in length.
       Type: String
       MinLength: 8
       AllowedPattern: ^(?=.*[0-9])(?=.*[a-z])(?=.*[A-Z])(?=.*[^0-9a-zA-Z])(?=\S+$).{8,}$
-      ConstraintDescription: Password must contain 1 or more uppercase characters. Password must contain 1 or more digit characters. Password must contain 1 or more special characters. Password must be 8 or more characters in length.
+      ConstraintDescription: Password must contain 1 or more uppercase characters. Password must contain 1 or more digit characters, 1 or more special characters and must be 8 or more characters in length.
       NoEcho: true
     SMTPHost:
       Description: (Optional) Fill in the SMTP Hostname for sending e-mails
@@ -74,11 +74,11 @@ Parameters:
       Type: String
       NoEcho: true
     SMTPPort:
-      Description: (Optional) Fill in the SMTP port for sending e-mails
+      Description: Fill in the SMTP port for sending e-mails. If not using SMTP leave as '587'
       Type: Number
       Default: 587
     SMTPTLS:
-      Description: (Optional) Select if you want to use TLS for sending e-mails
+      Description: Select if you want to use TLS for sending e-mails
       Type: String 
       AllowedValues:
         - true
@@ -88,7 +88,7 @@ Parameters:
       Description: (Optional) Fill in the From e-mail address you want to use for sending e-mails
       Type: String
     SMTPProtocol:
-      Description: (Optional) Select the SMTP protocol you want to use for sending e-mails (smtps = SSL)
+      Description: Select the SMTP protocol you want to use for sending e-mails (smtps = SSL)
       Type: String
       AllowedValues:
         - smtp
@@ -268,7 +268,7 @@ Resources:
           commands:
             01_install_docker:
               command: |
-                sudo yum install -y docker
+                sudo yum install -y docker wget
                 sudo service docker start
 
             02_install_docker_compose:
@@ -280,7 +280,7 @@ Resources:
               command: |
                 sudo mkdir openremote
                 sudo wget https://raw.githubusercontent.com/openremote/openremote/master/docker-compose.yml -P /openremote
-
+            
             04_create_instance:
               command: !Sub |
                 PUBLIC_IPV4=$(curl v4.ident.me 2>/dev/null)
