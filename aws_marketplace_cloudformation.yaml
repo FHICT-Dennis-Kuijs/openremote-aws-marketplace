@@ -272,31 +272,18 @@ Resources:
                 service docker enable
                 service docker start
 
-
             02_install_docker_compose:
               command: |
                 curl -L https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m) -o /usr/local/bin/docker-compose
                 chmod +x /usr/local/bin/docker-compose
               
-            03_download_config:
+            03_download_openremote_compose:
               command: |
                 mkdir openremote
                 wget https://raw.githubusercontent.com/openremote/openremote/master/docker-compose.yml -P /openremote
             
-            
-            04_create_instance:
+            04_create_containers:
               command: !Sub |
-                PUBLIC_IPV4=$(curl v4.ident.me 2>/dev/null)
-
-                if [ -z "${Hostname}" ]; then
-                  sleep 20
-                  export OR_HOSTNAME=$PUBLIC_IPV4
-                  echo "No Hostname provided, using the public IP address"
-                else
-                  export OR_HOSTNAME=${Hostname}
-                  echo "Using the provided Hostname"
-                fi
-
                 docker-compose -f /openremote/docker-compose.yml -p openremote up -d --no-start
 
             05_create_startup_service:
@@ -306,7 +293,7 @@ Resources:
                 #!/bin/bash
 
                 MAX_ATTEMPTS=30
-                ATTEMPT=1
+                ATTEMPT=0
 
                 while [ $ATTEMPT -le $MAX_ATTEMPTS ]; do
                     echo "Attempt $ATTEMPT to fetch parameters..."
@@ -330,7 +317,7 @@ Resources:
                         exit 0
                     fi
                     
-                    echo "Parameters not available yet, waiting..."
+                    echo "Attempt: $ATTEMPT - Parameters not available yet, trying again..."
                     sleep 10
                     ATTEMPT=$((ATTEMPT + 1))
                 done
@@ -461,7 +448,7 @@ Resources:
           "OR_EMAIL_FROM": "${SMTPFrom}",
           "OR_EMAIL_PROTOCOL": "${SMTPProtocol}"
         }
-    DependsOn: InstanceOR
+    DependsOn: StaticIP
 
 # SSM document to update Docker images
   UpdateDockerImagesDocument:
@@ -577,6 +564,36 @@ Resources:
                 - 'echo "Rebooting EC2 instance"'
                 - "sudo reboot now"
                 - 'echo "Amazon Linux OS update completed successfully"'
+
+# SSM document to clear the proxy data volume
+  ClearProxyDataDocument:
+    Type: AWS::SSM::Document
+    Properties:
+      DocumentType: Command
+      Content:
+        schemaVersion: '2.2'
+        description: "Delete the proxy data volume using systemd service"
+        mainSteps:
+          - action: aws:runShellScript
+            name: clearProxyData
+            inputs:
+              runCommand:
+                # Verify service exists
+                - 'if ! systemctl status openremote.service > /dev/null; then echo "OpenRemote service not found"; exit 1; fi'
+                # Stop service (which runs docker-compose down)
+                - 'echo "Stopping openremote.service..."'
+                - 'systemctl stop openremote.service || { echo "Failed to stop service"; exit 1; }'
+                # Wait for containers to stop
+                - 'sleep 5'
+                # Remove volume
+                - 'echo "Removing proxy volume..."'
+                - 'docker volume rm openremote_proxy-data || { echo "Failed to remove volume"; exit 1; }'
+                # Start service (which runs docker-compose up)
+                - 'echo "Starting openremote.service..."'
+                - 'systemctl start openremote.service || { echo "Failed to start service"; exit 1; }'
+                # Verify service is running
+                - 'systemctl is-active --quiet openremote.service || { echo "Service failed to start"; exit 1; }'
+                - 'echo "Service restarted successfully"'
 
 Outputs:
   PublicIP:
