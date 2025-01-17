@@ -154,12 +154,15 @@ For further troubleshooting, SSH into the EC2 instance. You will need to have ad
 
 ## Service Logs
 To see the OpenRemote service logs run the below commands:
+
 `sudo systemctl status openremote.service`
+
 `journalctl -u openremote.service`
 
 ## Docker Logs
 OpenRemote runs in a Docker environment. This means you can use standard Docker commands:
 [See the Containers section of the Docker CLI Cheat Sheet](https://docs.docker.com/get-started/docker_cheatsheet.pdf)
 
-For example, use `sudo docker ps` to see all of the running containers
+For example, use `sudo docker ps` to see all of the running containers.
+
 Then use `sudo docker logs <CONTAINER_ID>` to check the logs of each container.
