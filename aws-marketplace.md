@@ -37,9 +37,12 @@ If no value is submitted, you can access the software via the public `IPv4 addre
 > use a custom hostname,  you must add an A-record pointing to the `IPv4` address of the EC2 instance. 
 
 > [!TIP]
-> Leave the `hostname` field blank for initial deploymemt. Once deployed and you have updated your DNS with 
-> the Static IP, update the CloudFormation stack via the AWS console and add the hostname. Then run the
-> **Clear Proxy Configuration** script as described below. 
+> Leave the `hostname` field blank for initial deployment. Once deployed and you have updated your DNS with 
+> an A-Record pointing to the Static IP, update the CloudFormation stack via the AWS console and add the hostname. 
+> Then run the **Clear Proxy Configuration** script as described below so that the proxy container will generate 
+> a new [Lets Encrypt SSL certificate](https://letsencrypt.org/). If the hostname entered is not pointing to the 
+> Static IP when the proxy container is started, a will fail certificate retrieval, and you will be unable 
+> to access the site via the domain name. 
 
 #### `Keypair`
 Choose a `keypair` for SSH Access. The `keypair` must exist in the same AWS region where you want to deploy the software. 
