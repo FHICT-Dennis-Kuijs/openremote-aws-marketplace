@@ -38,7 +38,8 @@ If no value is submitted, you can access the software via the public `IPv4 addre
 
 > [!TIP]
 > Leave the `hostname` field blank for initial deploymemt. Once deployed and you have updated your DNS with 
-> the the Static IP, modify the CloudFormation configuration to the th  
+> the Static IP, update the CloudFormation stack via the AWS console and add the hostname. Then run the
+> **Clear Proxy Configuration** script as described below. 
 
 #### `Keypair`
 Choose a `keypair` for SSH Access. The `keypair` must exist in the same AWS region where you want to deploy the software. 
@@ -128,11 +129,11 @@ Select the SMTP protocol you want to use for sending e-mails. Choose between `sm
 ## Clear Proxy Configuration
 
 If a change is made to the hostname field, this script will need to be run to clear the proxy data and prompt it to re-request
-a certificate for the specified domain. Run this scrirpt if:
+a certificate for the specified domain. Run this script if:
 
 1. You want to add, change, or remove domain name to the OpenRemote instance.
-2. You recieve an `Invalid parameter: redirect_url` error
-3. You recieve a `ERR_TOO_MANY_REDIRECTS` error in Chrome or a `The page isn't redirecting properly` error in Firefox 
+2. You receive an `Invalid parameter: redirect_url` error
+3. You receive a `ERR_TOO_MANY_REDIRECTS` error in Chrome or a `The page isn't redirecting properly` error in Firefox 
 
 If adding or changing the hostname, run this script after the DNS A-record has been pointed to the Static IP and the record has propagated. 
 
@@ -154,7 +155,7 @@ To see the OpenRemote service logs run the below commands:
 `journalctl -u openremote.service`
 
 ## Docker Logs
-OpenRemote runs in a Docker enviroment. This means you can use standard Docker commands:
+OpenRemote runs in a Docker environment. This means you can use standard Docker commands:
 [See the Containers section of the Docker CLI Cheat Sheet](https://docs.docker.com/get-started/docker_cheatsheet.pdf)
 
 For example, use `sudo docker ps` to see all of the running containers
