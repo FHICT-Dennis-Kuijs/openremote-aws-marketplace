@@ -90,7 +90,7 @@ Select the SMTP protocol you want to use for sending e-mails. Choose between `sm
 
 1. Access the AWS Systems Manager via your AWS Console (note the region)
 2. Under Node Tools, press **Run Command**, then **Run command** again
-3. Search for `docker` and select the **OpenRemote-UpdateDocumentImagesDocument-xxxxxxxxxxxx**
+3. Search for `docker` and select the **OpenRemote-UpdateDockerImagesDocument-xxxxxxxxxxxx**
 4. Scroll down to the **Target** selection section, select **Choose instances manually**, and select the OpenRemote instance
 5. Press the **Run** button at the bottom of the page
 6. The next page will show the status of the command, and the below once the command has run successfully and any messages
