@@ -161,7 +161,7 @@ To see the OpenRemote service logs run the below commands:
 
 ## Docker Logs
 OpenRemote runs in a Docker environment. This means you can use standard Docker commands:
-[See the Containers section of the Docker CLI Cheat Sheet](https://docs.docker.com/get-started/docker_cheatsheet.pdf)
+See the Containers section of the [Docker CLI Cheat Sheet](https://docs.docker.com/get-started/docker_cheatsheet.pdf)
 
 For example, use `sudo docker ps` to see all of the running containers.
 
