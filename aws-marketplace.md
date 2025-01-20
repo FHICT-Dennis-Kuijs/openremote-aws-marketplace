@@ -1,9 +1,16 @@
-# AWS Marketplace OpenRemote Deployment
+---
+unlisted: true
+---
+
+# AWS Marketplace
 
 We have created an app for the AWS Marketplace to make deployment of OpenRemote easier. This guide describes how to configure the instance using the special AWS CloudFormation template.
 
+# Architecture Diagram
+![image](./img/or-aws-marketplace-architecture.png)
+
 ## Subscribe to the AWS Marketplace app
-1. Search for OpenRemote on the [AWS Marketplace](https://aws.amazon.com/marketplace) and click on the listing.
+1. Search for OpenRemote on the [AWS Marketplace](https://aws.amazon.com/marketplace/search/results?searchTerms=openremote) and click on the listing.
 2. Click on the orange button 'View purchase options'.
 3. Accept the EULA by pressing the 'Accept Terms' button
 4. You're now subscribed to the free OpenRemote Marketplace app. It will take a couple of minutes to process your subscription. After that, the 'Continue to Configuration' button becomes available.
@@ -16,13 +23,13 @@ We have created an app for the AWS Marketplace to make deployment of OpenRemote 
 ## Instance Configuration
 Now we're successfully subscribed to the OpenRemote marketplace app, we can start configuring it. In the section below, you will find a detailed description of each AWS CloudFormation parameter that's available in the template.
 
-#### `Stack Name`
+#### `Name`
 This can be anything and is used for recognizing the CloudFormation Stack. The Stack name must be 1 to 128 characters, start with a letter, and only contain alphanumeric characters.
 
-#### `Instance Name`
+#### `InstanceName`
 This name is used for recognizing the (OpenRemote) EC2 instance on the overview page.
 
-#### `Instance Type`
+#### `InstanceType`
 You can choose an instance based on your monthly budget. There are three options available:
 - `t4g.small` - `2 vCPU` / `2 GB RAM` - around $10 dollars per month AWS running costs
 - `t4g.medium` - `2 vCPU` / `4 GB RAM` - around $25 dollars per month AWS running costs
@@ -32,11 +39,11 @@ You can choose an instance based on your monthly budget. There are three options
 You can fill in the `FQDN (Fully Qualified Domain Name)` that you want to use for this OpenRemote instance. 
 If no value is submitted, you can access the software via the public `IPv4 address` from the EC2 instance.
 
-> [!NOTE] 
+> :::note
 > The software is not using `Amazon Route53` for DNS management. This means that – when you want to
 > use a custom hostname,  you must add an A-record pointing to the `IPv4` address of the EC2 instance. 
 
-> [!TIP]
+> :::tip
 > Leave the `hostname` field blank for initial deployment. Once deployed and you have updated your DNS with 
 > an A-Record pointing to the Static IP, update the CloudFormation stack via the AWS console and add the hostname. 
 > Then run the **Clear Proxy Configuration** script as described below so that the proxy container will generate 
@@ -48,7 +55,7 @@ If no value is submitted, you can access the software via the public `IPv4 addre
 Choose a `keypair` for SSH Access. The `keypair` must exist in the same AWS region where you want to deploy the software. 
 Information on how to create a new `keypair` can be found [here](https://eu-central-1.console.aws.amazon.com/ec2/home?region=REGION#KeyPairs:).
 
-> [!TIP]
+> :::tip
 > Create a keypair first and save it somewhere safe and secure. You will need this to SSH into the EC2 instance associated with this deployment.
 
 #### `SSHLocation`
