@@ -7,8 +7,8 @@ Metadata:
         Label:
           default: Instance Configuration
         Parameters:
-          - Name
-          - Instance
+          - InstanceName
+          - InstanceType
           - Hostname
           - Keypair
           - SSHLocation
@@ -29,11 +29,11 @@ Metadata:
           - SMTPProtocol
 
 Parameters:
-    Name:
+    InstanceName:
       Description: The name for this EC2 Instance on the EC2 Overview page
       Type: String
       Default: OpenRemote
-    Instance:
+    InstanceType:
       Description: Choose a instance based on your monthly budget
       Type: String
       Default: Medium
